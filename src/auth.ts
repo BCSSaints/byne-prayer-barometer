@@ -23,22 +23,33 @@ export class AuthService {
 
   // Authenticate user
   async authenticateUser(username: string, password: string): Promise<User | null> {
-    const user = await this.db
-      .prepare('SELECT id, username, password_hash, is_admin, created_at FROM users WHERE username = ?')
-      .bind(username)
-      .first() as any;
+    try {
+      const user = await this.db
+        .prepare('SELECT id, username, password_hash, is_admin, created_at FROM users WHERE username = ?')
+        .bind(username)
+        .first() as any;
 
-    if (!user) return null;
+      if (!user) {
+        console.log('User not found:', username);
+        return null;
+      }
 
-    const isValid = await AuthService.verifyPassword(password, user.password_hash);
-    if (!isValid) return null;
+      const isValid = await AuthService.verifyPassword(password, user.password_hash);
+      if (!isValid) {
+        console.log('Password verification failed for user:', username);
+        return null;
+      }
 
-    return {
-      id: user.id,
-      username: user.username,
-      is_admin: user.is_admin === 1,
-      created_at: user.created_at
-    };
+      return {
+        id: user.id,
+        username: user.username,
+        is_admin: user.is_admin === 1,
+        created_at: user.created_at
+      };
+    } catch (error) {
+      console.error('Authentication error:', error);
+      return null;
+    }
   }
 
   // Create session

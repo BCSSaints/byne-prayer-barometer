@@ -119,9 +119,22 @@ const renderPage = (title: string, content: string, user: any = null) => {
 
 // Login page
 app.get('/login', (c) => {
+  const errorParam = c.req.query('error');
+  let errorMessage = '';
+  
+  if (errorParam === 'invalid') {
+    errorMessage = '<div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">Invalid username or password.</div>';
+  } else if (errorParam === 'missing') {
+    errorMessage = '<div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">Please enter both username and password.</div>';
+  } else if (errorParam === 'server') {
+    errorMessage = '<div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">Server error. Please try again.</div>';
+  }
+
   const content = `
     <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
         <h2 class="text-2xl font-bold text-center mb-6">Login</h2>
+        
+        ${errorMessage}
         
         <form action="/api/login" method="POST" class="space-y-4">
             <div>
@@ -245,29 +258,38 @@ app.get('/', requireAuth, async (c) => {
 
 // API: Login endpoint
 app.post('/api/login', async (c) => {
-  const formData = await c.req.formData();
-  const username = formData.get('username') as string;
-  const password = formData.get('password') as string;
+  try {
+    const formData = await c.req.formData();
+    const username = formData.get('username') as string;
+    const password = formData.get('password') as string;
 
-  const authService = new AuthService(c.env.DB);
-  const user = await authService.authenticateUser(username, password);
+    if (!username || !password) {
+      return c.redirect('/login?error=missing');
+    }
 
-  if (!user) {
-    return c.redirect('/login?error=invalid');
+    const authService = new AuthService(c.env.DB);
+    const user = await authService.authenticateUser(username, password);
+
+    if (!user) {
+      return c.redirect('/login?error=invalid');
+    }
+
+    const sessionId = await authService.createSession(user.id);
+    
+    // Set cookie with settings that work in Cloudflare Pages
+    setCookie(c, 'session_id', sessionId, {
+      httpOnly: true,
+      secure: true, // Use secure in production
+      sameSite: 'Lax', // More permissive for Cloudflare Pages
+      path: '/',
+      maxAge: 24 * 60 * 60
+    });
+    
+    return c.redirect('/');
+  } catch (error) {
+    console.error('Login error:', error);
+    return c.redirect('/login?error=server');
   }
-
-  const sessionId = await authService.createSession(user.id);
-  
-  // Set secure cookie
-  setCookie(c, 'session_id', sessionId, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'Strict',
-    path: '/',
-    maxAge: 24 * 60 * 60
-  });
-  
-  return c.redirect('/');
 });
 
 // API: Logout endpoint

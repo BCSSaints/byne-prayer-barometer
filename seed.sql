@@ -2,7 +2,7 @@
 -- Default password: "admin123" (hashed with bcrypt)
 -- You should change this after first login
 INSERT OR IGNORE INTO users (username, password_hash, is_admin) VALUES 
-  ('admin', '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeyshoD9JjlojzWM6', 1);
+  ('admin', '$2b$10$TVuMUzB1fG7uar3nHVS07eAu1C8WJdPcy/E/jxWqzZAV1JwGcoz0K', 1);
 
 -- Insert sample prayer requests for demonstration
 INSERT OR IGNORE INTO prayer_requests (title, content, requester_name, submitted_by) VALUES 
