@@ -34,9 +34,21 @@ export interface PrayerRequest {
   content: string;
   requester_name: string;
   submitted_by: number;
+  category: string;
   status: 'active' | 'answered' | 'archived';
   created_at: string;
   updated_at: string;
+}
+
+export interface PrayerCategory {
+  id: number;
+  name: string;
+  description: string;
+  color: string;
+  icon: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
 }
 
 export interface SuggestedUpdate {
@@ -71,6 +83,13 @@ export interface PrayerRequestForm {
   title: string;
   content: string;
   requester_name: string;
+  category: string;
+}
+
+export interface ImportResult {
+  success: number;
+  failed: number;
+  errors: string[];
 }
 
 export interface SuggestedUpdateForm {

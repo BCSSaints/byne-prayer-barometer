@@ -4,16 +4,26 @@ import { PrayerRequest, SuggestedUpdate, PrayerRequestForm, SuggestedUpdateForm 
 export class PrayerService {
   constructor(private db: D1Database) {}
 
-  // Get all active prayer requests
-  async getAllPrayerRequests(): Promise<PrayerRequest[]> {
+  // Get all active prayer requests with optional category filter
+  async getAllPrayerRequests(category?: string): Promise<PrayerRequest[]> {
+    let query = `
+      SELECT id, title, content, requester_name, submitted_by, category, status, 
+             created_at, updated_at 
+      FROM prayer_requests 
+      WHERE status != 'archived'
+    `;
+    
+    const params = [];
+    if (category && category !== 'all') {
+      query += ' AND category = ?';
+      params.push(category);
+    }
+    
+    query += ' ORDER BY created_at DESC';
+
     const results = await this.db
-      .prepare(`
-        SELECT id, title, content, requester_name, submitted_by, status, 
-               created_at, updated_at 
-        FROM prayer_requests 
-        WHERE status != 'archived'
-        ORDER BY created_at DESC
-      `)
+      .prepare(query)
+      .bind(...params)
       .all();
 
     return results.results as PrayerRequest[];
@@ -23,7 +33,7 @@ export class PrayerService {
   async getPrayerRequestById(id: number): Promise<PrayerRequest | null> {
     const result = await this.db
       .prepare(`
-        SELECT id, title, content, requester_name, submitted_by, status, 
+        SELECT id, title, content, requester_name, submitted_by, category, status, 
                created_at, updated_at 
         FROM prayer_requests 
         WHERE id = ?
@@ -38,10 +48,10 @@ export class PrayerService {
   async createPrayerRequest(data: PrayerRequestForm, userId: number): Promise<number> {
     const result = await this.db
       .prepare(`
-        INSERT INTO prayer_requests (title, content, requester_name, submitted_by) 
-        VALUES (?, ?, ?, ?)
+        INSERT INTO prayer_requests (title, content, requester_name, category, submitted_by) 
+        VALUES (?, ?, ?, ?, ?)
       `)
-      .bind(data.title, data.content, data.requester_name, userId)
+      .bind(data.title, data.content, data.requester_name, data.category, userId)
       .run();
 
     return result.meta.last_row_id as number;
@@ -171,5 +181,118 @@ export class PrayerService {
       .all();
 
     return results.results as SuggestedUpdate[];
+  }
+
+  // Delete prayer request (admin only)
+  async deletePrayerRequest(id: number): Promise<void> {
+    // Delete associated suggested updates first
+    await this.db
+      .prepare('DELETE FROM suggested_updates WHERE prayer_request_id = ?')
+      .bind(id)
+      .run();
+
+    // Delete the prayer request
+    await this.db
+      .prepare('DELETE FROM prayer_requests WHERE id = ?')
+      .bind(id)
+      .run();
+  }
+
+  // Get all prayer categories
+  async getAllCategories(): Promise<any[]> {
+    const results = await this.db
+      .prepare(`
+        SELECT id, name, description, color, icon, sort_order, is_active, created_at
+        FROM prayer_categories 
+        WHERE is_active = 1 
+        ORDER BY sort_order, name
+      `)
+      .all();
+
+    return results.results as any[];
+  }
+
+  // Get prayer request counts by category
+  async getPrayerCountsByCategory(): Promise<any[]> {
+    const results = await this.db
+      .prepare(`
+        SELECT 
+          pr.category,
+          pc.color,
+          pc.icon,
+          COUNT(*) as count
+        FROM prayer_requests pr
+        LEFT JOIN prayer_categories pc ON pr.category = pc.name
+        WHERE pr.status = 'active'
+        GROUP BY pr.category, pc.color, pc.icon
+        ORDER BY count DESC
+      `)
+      .all();
+
+    return results.results as any[];
+  }
+
+  // Bulk import prayer requests from array
+  async bulkImportPrayerRequests(prayers: PrayerRequestForm[], userId: number): Promise<{success: number, failed: number, errors: string[]}> {
+    let success = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    for (const prayer of prayers) {
+      try {
+        if (!prayer.title || !prayer.content || !prayer.requester_name) {
+          failed++;
+          errors.push(`Missing required fields for: ${prayer.title || 'Unknown'}`);
+          continue;
+        }
+
+        await this.createPrayerRequest(prayer, userId);
+        success++;
+      } catch (error) {
+        failed++;
+        errors.push(`Failed to import "${prayer.title}": ${error}`);
+      }
+    }
+
+    // Log the import
+    await this.db
+      .prepare(`
+        INSERT INTO import_logs (imported_by, records_imported, records_failed, import_notes)
+        VALUES (?, ?, ?, ?)
+      `)
+      .bind(userId, success, failed, JSON.stringify(errors.slice(0, 10))) // Store first 10 errors
+      .run();
+
+    return { success, failed, errors };
+  }
+
+  // Get export data for all active prayers
+  async getExportData(): Promise<any[]> {
+    const results = await this.db
+      .prepare(`
+        SELECT 
+          pr.title,
+          pr.content,
+          pr.requester_name,
+          pr.category,
+          pr.status,
+          pr.created_at,
+          pr.updated_at,
+          u.full_name as submitted_by_name,
+          GROUP_CONCAT(
+            CASE WHEN su.status = 'approved' 
+            THEN su.suggested_content || ' (Updated: ' || su.reviewed_at || ')'
+            END, ' | '
+          ) as approved_updates
+        FROM prayer_requests pr
+        LEFT JOIN users u ON pr.submitted_by = u.id
+        LEFT JOIN suggested_updates su ON pr.id = su.prayer_request_id
+        WHERE pr.status = 'active'
+        GROUP BY pr.id
+        ORDER BY pr.created_at DESC
+      `)
+      .all();
+
+    return results.results as any[];
   }
 }

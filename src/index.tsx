@@ -199,11 +199,39 @@ app.get('/', requireAuth, async (c) => {
   const user = c.get('user');
   const prayerService = new PrayerService(c.env.DB);
   
-  const prayerRequests = await prayerService.getAllPrayerRequests();
+  const selectedCategory = c.req.query('category') || 'all';
+  const prayerRequests = await prayerService.getAllPrayerRequests(selectedCategory === 'all' ? undefined : selectedCategory);
+  const categories = await prayerService.getAllCategories();
+  const categoryStats = await prayerService.getPrayerCountsByCategory();
 
   const content = `
-    <div class="grid md:grid-cols-2 gap-8">
-        <div>
+    <!-- Category Filter Bar -->
+    <div class="mb-6 bg-white rounded-lg shadow-md p-4">
+        <h3 class="text-lg font-bold mb-3">
+            <i class="fas fa-filter mr-2 text-byne-blue"></i>
+            Filter by Category
+        </h3>
+        <div class="flex flex-wrap gap-2">
+            <a href="/?category=all" 
+               class="px-3 py-1 rounded-full text-sm ${selectedCategory === 'all' ? 'bg-byne-blue text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
+                <i class="fas fa-th-large mr-1"></i>All (${prayerRequests.length + categoryStats.reduce((sum, cat) => selectedCategory === 'all' ? 0 : sum + (cat.count || 0), 0)})
+            </a>
+            ${categories.map(cat => {
+              const count = categoryStats.find(s => s.category === cat.name)?.count || 0;
+              return `
+                <a href="/?category=${encodeURIComponent(cat.name)}" 
+                   class="px-3 py-1 rounded-full text-sm ${selectedCategory === cat.name ? 'text-white' : 'text-gray-700 hover:bg-gray-200'}"
+                   style="background-color: ${selectedCategory === cat.name ? cat.color : '#f3f4f6'}">
+                    <i class="${cat.icon} mr-1"></i>${cat.name} (${count})
+                </a>
+              `;
+            }).join('')}
+        </div>
+    </div>
+
+    <div class="grid lg:grid-cols-3 gap-8">
+        <!-- Submit Prayer Request Form -->
+        <div class="lg:col-span-1">
             <div class="bg-white rounded-lg shadow-md p-6 mb-6">
                 <h2 class="text-xl font-bold mb-4">
                     <i class="fas fa-plus-circle mr-2 text-green-600"></i>
@@ -214,19 +242,29 @@ app.get('/', requireAuth, async (c) => {
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
                         <input type="text" name="title" required 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-byne-blue">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                        <select name="category" required 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-byne-blue">
+                            ${categories.map(cat => `
+                                <option value="${cat.name}">${cat.name}</option>
+                            `).join('')}
+                        </select>
                     </div>
                     
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Prayer Request</label>
                         <textarea name="content" rows="4" required 
-                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-byne-blue"></textarea>
                     </div>
                     
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Requested by (name)</label>
                         <input type="text" name="requester_name" required 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-byne-blue">
                     </div>
                     
                     <button type="submit" 
@@ -237,17 +275,49 @@ app.get('/', requireAuth, async (c) => {
             </div>
         </div>
         
-        <div>
-            <h2 class="text-xl font-bold mb-4">
-                <i class="fas fa-praying-hands mr-2 text-blue-600"></i>
-                Active Prayer Requests (${prayerRequests.length})
-            </h2>
+        <!-- Prayer Requests List -->
+        <div class="lg:col-span-2">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">
+                    <i class="fas fa-praying-hands mr-2 text-byne-blue"></i>
+                    ${selectedCategory === 'all' ? 'All Prayer Requests' : selectedCategory} (${prayerRequests.length})
+                </h2>
+                ${user.is_admin ? `
+                    <div class="flex space-x-2">
+                        <a href="/admin/import" class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">
+                            <i class="fas fa-upload mr-1"></i>Import
+                        </a>
+                        <a href="/admin/export" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
+                            <i class="fas fa-download mr-1"></i>Export
+                        </a>
+                    </div>
+                ` : ''}
+            </div>
             
             <div class="space-y-4">
-                ${prayerRequests.map(prayer => `
-                    <div class="bg-white rounded-lg shadow-md p-4 prayer-card">
+                ${prayerRequests.map(prayer => {
+                  const category = categories.find(c => c.name === prayer.category);
+                  return `
+                    <div class="bg-white rounded-lg shadow-md p-4 prayer-card border-l-4" style="border-left-color: ${category?.color || '#3B82F6'}">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="flex items-center space-x-2 mb-2">
+                                <span class="px-2 py-1 rounded-full text-xs font-semibold text-white" style="background-color: ${category?.color || '#3B82F6'}">
+                                    <i class="${category?.icon || 'fas fa-praying-hands'} mr-1"></i>${prayer.category}
+                                </span>
+                                ${user.is_admin ? `
+                                    <form action="/api/prayer-requests/${prayer.id}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this prayer request? This action cannot be undone.')">
+                                        <input type="hidden" name="_method" value="DELETE">
+                                        <button type="submit" class="text-red-500 hover:text-red-700 text-xs">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                ` : ''}
+                            </div>
+                        </div>
+                        
                         <h3 class="font-bold text-lg mb-2">${prayer.title}</h3>
                         <p class="text-gray-600 mb-3">${prayer.content}</p>
+                        
                         <div class="flex justify-between items-center text-sm text-gray-500 mb-3">
                             <span><i class="fas fa-user mr-1"></i>${prayer.requester_name}</span>
                             <span><i class="fas fa-calendar mr-1"></i>${new Date(prayer.created_at).toLocaleDateString()}</span>
@@ -273,7 +343,8 @@ app.get('/', requireAuth, async (c) => {
                             </div>
                         </div>
                     </div>
-                `).join('')}
+                  `;
+                }).join('')}
             </div>
         </div>
     </div>
@@ -340,6 +411,7 @@ app.post('/api/prayer-requests', requireAuth, async (c) => {
     title: formData.get('title') as string,
     content: formData.get('content') as string,
     requester_name: formData.get('requester_name') as string,
+    category: formData.get('category') as string,
   };
 
   const prayerService = new PrayerService(c.env.DB);
@@ -358,6 +430,25 @@ app.post('/api/prayer-requests/:id/suggest-update', requireAuth, async (c) => {
   await prayerService.createSuggestedUpdate(prayerRequestId, { suggested_content }, user.id);
   
   return c.json({ success: true });
+});
+
+// API: Delete prayer request (Admin only)
+app.post('/api/prayer-requests/:id', requireAuth, requireAdmin, async (c) => {
+  try {
+    const prayerRequestId = parseInt(c.req.param('id'));
+    const formData = await c.req.formData();
+    const method = formData.get('_method') as string;
+
+    if (method === 'DELETE') {
+      const prayerService = new PrayerService(c.env.DB);
+      await prayerService.deletePrayerRequest(prayerRequestId);
+    }
+    
+    return c.redirect('/');
+  } catch (error) {
+    console.error('Delete prayer request error:', error);
+    return c.redirect('/?error=delete');
+  }
 });
 
 // Admin panel
@@ -639,6 +730,239 @@ app.post('/api/users/:id', requireAuth, requireSuperAdmin, async (c) => {
   } catch (error) {
     console.error('Update user error:', error);
     return c.redirect('/manage-users?error=update');
+  }
+});
+
+// Import page (Admin only)
+app.get('/admin/import', requireAuth, requireAdmin, async (c) => {
+  const user = c.get('user');
+  const prayerService = new PrayerService(c.env.DB);
+  const categories = await prayerService.getAllCategories();
+
+  const content = `
+    <div class="max-w-4xl mx-auto">
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-2xl font-bold mb-6">
+          <i class="fas fa-upload mr-2 text-green-600"></i>
+          Import Prayer Requests
+        </h2>
+        
+        <div class="mb-6 p-4 bg-blue-50 rounded-lg">
+          <h3 class="font-bold text-blue-800 mb-2">CSV Format Requirements:</h3>
+          <p class="text-blue-700 mb-2">Your CSV file should have the following columns (first row as headers):</p>
+          <code class="bg-blue-100 p-2 rounded text-sm block">
+            title,content,requester_name,category
+          </code>
+          <p class="text-blue-700 mt-2 text-sm">
+            Available categories: ${categories.map(c => c.name).join(', ')}
+          </p>
+        </div>
+
+        <div class="mb-6 p-4 bg-yellow-50 rounded-lg">
+          <h3 class="font-bold text-yellow-800 mb-2">Example CSV Content:</h3>
+          <pre class="bg-yellow-100 p-2 rounded text-sm overflow-x-auto">
+title,content,requester_name,category
+"Healing for John","Please pray for John's recovery from surgery","Mary Smith","Health Need"
+"Mission Trip Safety","Pray for our team going to Honduras","Youth Pastor","Ministry Partner"
+"College Stress","Pray for peace during finals week","Sarah Johnson","College Student"
+          </pre>
+        </div>
+
+        <form action="/api/admin/import" method="POST" enctype="multipart/form-data" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Select CSV File</label>
+            <input type="file" name="csvFile" accept=".csv" required 
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-byne-blue">
+            <p class="text-sm text-gray-500 mt-1">Upload a CSV file with prayer requests</p>
+          </div>
+          
+          <div class="flex justify-between">
+            <a href="/" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+              <i class="fas fa-arrow-left mr-2"></i>Back to Dashboard
+            </a>
+            <button type="submit" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">
+              <i class="fas fa-upload mr-2"></i>Import Prayer Requests
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  return c.html(renderPage('Import Prayer Requests', content, user));
+});
+
+// Export page (Admin only)
+app.get('/admin/export', requireAuth, requireAdmin, async (c) => {
+  const user = c.get('user');
+  const prayerService = new PrayerService(c.env.DB);
+  const exportData = await prayerService.getExportData();
+  
+  // Generate CSV content
+  const csvHeaders = ['Title', 'Content', 'Requested By', 'Category', 'Status', 'Created Date', 'Recent Updates'];
+  const csvRows = exportData.map(prayer => [
+    `"${prayer.title.replace(/"/g, '""')}"`,
+    `"${prayer.content.replace(/"/g, '""')}"`,
+    `"${prayer.requester_name.replace(/"/g, '""')}"`,
+    `"${prayer.category}"`,
+    `"${prayer.status}"`,
+    `"${new Date(prayer.created_at).toLocaleDateString()}"`,
+    `"${(prayer.approved_updates || '').replace(/"/g, '""')}"`
+  ]);
+  
+  const csvContent = [csvHeaders.join(','), ...csvRows.map(row => row.join(','))].join('\n');
+
+  const content = `
+    <div class="max-w-6xl mx-auto">
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-bold">
+            <i class="fas fa-download mr-2 text-blue-600"></i>
+            Export Prayer Requests (${exportData.length} active)
+          </h2>
+          <div class="flex space-x-2">
+            <button onclick="downloadCSV()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+              <i class="fas fa-file-csv mr-2"></i>Download CSV
+            </button>
+            <button onclick="printReport()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+              <i class="fas fa-print mr-2"></i>Print Report
+            </button>
+            <a href="/" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+              <i class="fas fa-arrow-left mr-2"></i>Back
+            </a>
+          </div>
+        </div>
+
+        <div id="printable-report" class="space-y-4">
+          <div class="text-center mb-6 print:block hidden">
+            <h1 class="text-2xl font-bold">BYNE CHURCH</h1>
+            <h2 class="text-xl">Prayer Request Report</h2>
+            <p class="text-gray-600">Generated on ${new Date().toLocaleDateString()}</p>
+          </div>
+
+          ${exportData.map((prayer, index) => `
+            <div class="border rounded-lg p-4 print:border-gray-400 print:mb-4 print:break-inside-avoid">
+              <div class="flex justify-between items-start mb-2">
+                <h3 class="font-bold text-lg">${index + 1}. ${prayer.title}</h3>
+                <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
+                  ${prayer.category}
+                </span>
+              </div>
+              <p class="text-gray-700 mb-2">${prayer.content}</p>
+              <div class="text-sm text-gray-500 mb-2">
+                <strong>Requested by:</strong> ${prayer.requester_name} | 
+                <strong>Date:</strong> ${new Date(prayer.created_at).toLocaleDateString()}
+              </div>
+              ${prayer.approved_updates ? `
+                <div class="bg-green-50 p-2 rounded mt-2">
+                  <strong class="text-green-800">Recent Updates:</strong>
+                  <p class="text-green-700 text-sm">${prayer.approved_updates}</p>
+                </div>
+              ` : ''}
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const csvData = \`${csvContent.replace(/`/g, '\\`')}\`;
+      
+      function downloadCSV() {
+        const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'byne_church_prayer_requests_' + new Date().toISOString().split('T')[0] + '.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+
+      function printReport() {
+        window.print();
+      }
+    </script>
+
+    <style>
+      @media print {
+        body * {
+          visibility: hidden;
+        }
+        #printable-report, #printable-report * {
+          visibility: visible;
+        }
+        #printable-report {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+        }
+        .no-print {
+          display: none !important;
+        }
+      }
+    </style>
+  `;
+
+  return c.html(renderPage('Export Prayer Requests', content, user));
+});
+
+// API: Import CSV (Admin only)
+app.post('/api/admin/import', requireAuth, requireAdmin, async (c) => {
+  try {
+    const user = c.get('user');
+    const formData = await c.req.formData();
+    const csvFile = formData.get('csvFile') as File;
+
+    if (!csvFile || !csvFile.name.endsWith('.csv')) {
+      return c.redirect('/admin/import?error=invalid_file');
+    }
+
+    const csvContent = await csvFile.text();
+    const lines = csvContent.split('\n').filter(line => line.trim());
+    
+    if (lines.length < 2) {
+      return c.redirect('/admin/import?error=empty_file');
+    }
+
+    // Parse CSV (simple parsing - assumes no commas in quoted fields for now)
+    const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''));
+    const requiredHeaders = ['title', 'content', 'requester_name', 'category'];
+    
+    const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+    if (missingHeaders.length > 0) {
+      return c.redirect(`/admin/import?error=missing_headers&headers=${missingHeaders.join(',')}`);
+    }
+
+    const prayers: PrayerRequestForm[] = [];
+    
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+      
+      if (values.length >= headers.length) {
+        const prayer: PrayerRequestForm = {
+          title: values[headers.indexOf('title')] || '',
+          content: values[headers.indexOf('content')] || '',
+          requester_name: values[headers.indexOf('requester_name')] || '',
+          category: values[headers.indexOf('category')] || 'Prayer Need'
+        };
+        
+        if (prayer.title && prayer.content && prayer.requester_name) {
+          prayers.push(prayer);
+        }
+      }
+    }
+
+    const prayerService = new PrayerService(c.env.DB);
+    const result = await prayerService.bulkImportPrayerRequests(prayers, user.id);
+    
+    return c.redirect(`/?imported=${result.success}&failed=${result.failed}`);
+    
+  } catch (error) {
+    console.error('Import error:', error);
+    return c.redirect('/admin/import?error=processing');
   }
 });
 

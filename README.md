@@ -6,11 +6,12 @@
 - **Features**: Password-protected prayer submission, update suggestions, and admin approval workflow
 
 ## URLs
-- **Production**: https://a5736507.prayer-app.pages.dev
+- **Production**: https://3e72d9bb.prayer-app.pages.dev
 - **Alternative**: https://prayer-app.pages.dev
-- **Login Page**: https://a5736507.prayer-app.pages.dev/login
-- **Admin Panel**: https://a5736507.prayer-app.pages.dev/admin
-- **User Management**: https://a5736507.prayer-app.pages.dev/manage-users
+- **Login Page**: https://3e72d9bb.prayer-app.pages.dev/login
+- **Admin Panel**: https://3e72d9bb.prayer-app.pages.dev/admin
+- **User Management**: https://3e72d9bb.prayer-app.pages.dev/manage-users
+- **Import/Export**: https://3e72d9bb.prayer-app.pages.dev/admin/import
 
 ## Data Architecture
 - **Data Models**: Users, Prayer Requests, Suggested Updates, Sessions
@@ -50,7 +51,25 @@
 - Real-time user statistics and activity tracking
 - Email and full name support for better user profiles
 
-✅ **BYNE CHURCH Branding (NEW)**
+✅ **Prayer Request Categories (NEW)**
+- 8 pre-configured categories: Praise Report, Hospital Need, Health Need, Prayer Need, Long-Term Need, College Student, Military, Ministry Partner
+- Color-coded category badges with custom icons
+- Filter prayers by category with real-time counts
+- Visual category indicators on prayer cards
+
+✅ **Import/Export System (NEW)**
+- CSV import functionality for bulk prayer requests
+- Professional export with printable reports
+- Download prayer data as CSV for external use
+- Import validation with error reporting
+
+✅ **Enhanced Admin Controls (NEW)**
+- Delete prayer requests with confirmation
+- Sort all requests and updates by most recent first
+- Admin import/export access from dashboard
+- Comprehensive prayer management tools
+
+✅ **BYNE CHURCH Branding**
 - Custom church logo integration in header
 - Matching blue color scheme from church branding
 - Professional typography matching church identity
@@ -90,6 +109,12 @@
 - `POST /api/users` → Create new user account
 - `POST /api/users/:id` → Update user status (activate/deactivate)
 
+### Import/Export Endpoints (requires admin privileges)
+- `GET /admin/import` → CSV import interface
+- `POST /api/admin/import` → Process CSV file upload
+- `GET /admin/export` → Export and print interface
+- `POST /api/prayer-requests/:id` → Delete prayer request
+
 ## User Guide
 1. **Access the App**: Visit the production URL
 2. **Login**: Contact administrator for credentials (default removed for security)
@@ -98,6 +123,9 @@
 5. **Admin Review**: Admins can visit `/admin` to approve/reject suggested updates
 6. **User Management**: Super admins can visit `/manage-users` to create and manage users
 7. **View Updates**: Approved updates appear on prayer request cards
+8. **Filter by Category**: Use category buttons to filter prayer requests
+9. **Import Data**: Admins can use `/admin/import` to bulk upload prayer requests from CSV
+10. **Export/Print**: Use `/admin/export` to download CSV or print formatted reports
 
 ## Administrator Access
 - **Super Admin Account**: admin/admin123 (created during setup)
@@ -133,7 +161,7 @@ npm run git:commit "msg"   # Add and commit with message
 ## Deployment
 - **Platform**: Cloudflare Pages
 - **Status**: ✅ PRODUCTION DEPLOYED
-- **Production URL**: https://a5736507.prayer-app.pages.dev
+- **Production URL**: https://3e72d9bb.prayer-app.pages.dev
 - **Database**: Cloudflare D1 (Remote Production)
 - **Tech Stack**: Hono + TypeScript + TailwindCSS + D1 Database
 - **Authentication**: Secure session-based with bcrypt password hashing
@@ -149,21 +177,21 @@ npm run git:commit "msg"   # Add and commit with message
 ## Features Not Yet Implemented
 - User registration (currently admin creates users)
 - Email notifications for prayer updates
-- Prayer request categories/tags
-- Search and filtering functionality
-- Bulk prayer request management
-- Prayer request status updates (answered/archived)
+- Advanced search functionality
+- Prayer request status updates (answered/archived) - UI controls needed
 - User profile management
 - Prayer request comments/discussion
+- Mobile app version
+- Automated prayer reminders
 
 ## Recommended Next Steps
-1. **Add user registration system** for church members
-2. **Implement prayer categories** (healing, guidance, thanksgiving, etc.)
-3. **Add email notifications** when updates are approved
-4. **Create search/filter functionality** for prayer requests
-5. **Add prayer request status management** (mark as answered)
-6. **Implement bulk operations** for admin management
-7. **Add prayer request analytics** and reporting
-8. **Create mobile-optimized PWA** for better mobile experience
-9. **Deploy to production** Cloudflare Pages
-10. **Set up automated backups** for prayer data
+1. **Add email notifications** when updates are approved
+2. **Implement prayer status workflow** (mark as answered/archived with UI controls)
+3. **Create advanced search functionality** across all prayer fields
+4. **Add prayer request analytics** and reporting dashboard
+5. **Create mobile-optimized PWA** for better mobile experience
+6. **Implement automated prayer reminders** for long-term requests
+7. **Add user profile management** with contact preferences
+8. **Create prayer request discussion threads** for community interaction
+9. **Set up automated backups** for prayer data
+10. **Add multi-language support** for diverse congregations
