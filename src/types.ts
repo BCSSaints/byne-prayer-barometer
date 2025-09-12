@@ -3,8 +3,29 @@
 export interface User {
   id: number;
   username: string;
-  is_admin: boolean;
+  email?: string;
+  full_name?: string;
+  role: 'super_admin' | 'admin' | 'moderator' | 'member';
+  status: 'active' | 'inactive' | 'suspended';
+  is_admin: boolean; // Keep for backward compatibility
+  created_by?: number;
+  last_login?: string;
   created_at: string;
+}
+
+export interface Permission {
+  id: number;
+  name: string;
+  description: string;
+  created_at: string;
+}
+
+export interface CreateUserForm {
+  username: string;
+  password: string;
+  email: string;
+  full_name: string;
+  role: 'admin' | 'moderator' | 'member';
 }
 
 export interface PrayerRequest {

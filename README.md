@@ -6,10 +6,11 @@
 - **Features**: Password-protected prayer submission, update suggestions, and admin approval workflow
 
 ## URLs
-- **Production**: https://be3e1e1d.prayer-app.pages.dev
+- **Production**: https://a5736507.prayer-app.pages.dev
 - **Alternative**: https://prayer-app.pages.dev
-- **Login Page**: https://be3e1e1d.prayer-app.pages.dev/login
-- **Admin Panel**: https://be3e1e1d.prayer-app.pages.dev/admin
+- **Login Page**: https://a5736507.prayer-app.pages.dev/login
+- **Admin Panel**: https://a5736507.prayer-app.pages.dev/admin
+- **User Management**: https://a5736507.prayer-app.pages.dev/manage-users
 
 ## Data Architecture
 - **Data Models**: Users, Prayer Requests, Suggested Updates, Sessions
@@ -42,14 +43,28 @@
 - Approve or reject updates with optional admin notes
 - Automatic timestamp tracking for review actions
 
-✅ **Database Schema**
-- Users table with admin role support
+✅ **User Management System (NEW)**
+- Comprehensive user management panel for super admins at `/manage-users`
+- Role-based permissions (Super Admin, Admin, Moderator, Member)
+- Create, activate, and deactivate user accounts
+- Real-time user statistics and activity tracking
+- Email and full name support for better user profiles
+
+✅ **BYNE CHURCH Branding (NEW)**
+- Custom church logo integration in header
+- Matching blue color scheme from church branding
+- Professional typography matching church identity
+- Removed default credentials from login page for security
+
+✅ **Enhanced Database Schema**
+- Users table with role-based permissions and full profiles
 - Prayer requests with status tracking (active/answered/archived)
 - Suggested updates with approval workflow
 - Sessions table for secure authentication
+- Permissions and role management system
 
 ✅ **Responsive UI**
-- TailwindCSS styling with modern design
+- TailwindCSS styling with custom BYNE CHURCH colors
 - FontAwesome icons for enhanced UX
 - Mobile-friendly responsive layout
 - Interactive forms with hover effects
@@ -70,18 +85,25 @@
 - `GET /admin` → Admin panel for reviewing suggested updates
 - `POST /api/admin/review-update` → Approve/reject suggested updates
 
+### Super Admin Endpoints (requires super admin privileges)
+- `GET /manage-users` → User management panel
+- `POST /api/users` → Create new user account
+- `POST /api/users/:id` → Update user status (activate/deactivate)
+
 ## User Guide
-1. **Access the App**: Visit the development URL
-2. **Login**: Use default credentials (admin/admin123) or create additional users
+1. **Access the App**: Visit the production URL
+2. **Login**: Contact administrator for credentials (default removed for security)
 3. **Submit Prayer**: Fill out the prayer request form on the dashboard
 4. **Suggest Updates**: Click "Suggest Update" on any prayer card to share news
 5. **Admin Review**: Admins can visit `/admin` to approve/reject suggested updates
-6. **View Updates**: Approved updates appear on prayer request cards
+6. **User Management**: Super admins can visit `/manage-users` to create and manage users
+7. **View Updates**: Approved updates appear on prayer request cards
 
-## Default Login Credentials
-- **Username**: admin
-- **Password**: admin123
-- **Role**: Administrator (can access admin panel)
+## Administrator Access
+- **Super Admin Account**: admin/admin123 (created during setup)
+- **Role**: Super Administrator (full access including user management)
+- **Security Note**: Change default password after first login
+- **User Creation**: Super admins can create accounts for church members
 
 ## Database Configuration
 - **Local Development**: Uses SQLite via Wrangler `--local` flag
@@ -111,7 +133,7 @@ npm run git:commit "msg"   # Add and commit with message
 ## Deployment
 - **Platform**: Cloudflare Pages
 - **Status**: ✅ PRODUCTION DEPLOYED
-- **Production URL**: https://be3e1e1d.prayer-app.pages.dev
+- **Production URL**: https://a5736507.prayer-app.pages.dev
 - **Database**: Cloudflare D1 (Remote Production)
 - **Tech Stack**: Hono + TypeScript + TailwindCSS + D1 Database
 - **Authentication**: Secure session-based with bcrypt password hashing
