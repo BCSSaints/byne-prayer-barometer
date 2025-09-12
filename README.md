@@ -6,12 +6,13 @@
 - **Features**: Password-protected prayer submission, update suggestions, and admin approval workflow
 
 ## URLs
-- **Production**: https://3e72d9bb.prayer-app.pages.dev
+- **Production**: https://01867689.prayer-app.pages.dev
 - **Alternative**: https://prayer-app.pages.dev
-- **Login Page**: https://3e72d9bb.prayer-app.pages.dev/login
-- **Admin Panel**: https://3e72d9bb.prayer-app.pages.dev/admin
-- **User Management**: https://3e72d9bb.prayer-app.pages.dev/manage-users
-- **Import/Export**: https://3e72d9bb.prayer-app.pages.dev/admin/import
+- **Login Page**: https://01867689.prayer-app.pages.dev/login
+- **Admin Panel**: https://01867689.prayer-app.pages.dev/admin
+- **Activity Tracking**: https://01867689.prayer-app.pages.dev/admin/activity
+- **User Management**: https://01867689.prayer-app.pages.dev/manage-users
+- **Import/Export**: https://01867689.prayer-app.pages.dev/admin/import
 
 ## Data Architecture
 - **Data Models**: Users, Prayer Requests, Suggested Updates, Sessions
@@ -69,6 +70,13 @@
 - Admin import/export access from dashboard
 - Comprehensive prayer management tools
 
+✅ **Prayer Activity Tracking (NEW)**
+- Admin dashboard shows when prayers were last updated
+- Visual indicators for recently updated vs. created prayers
+- Activity tracking page with complete prayer history
+- Stale prayer detection (prayers over 30 days without updates)
+- Statistics dashboard with prayer counts and activity metrics
+
 ✅ **BYNE CHURCH Branding**
 - Custom church logo integration in header
 - Matching blue color scheme from church branding
@@ -109,10 +117,11 @@
 - `POST /api/users` → Create new user account
 - `POST /api/users/:id` → Update user status (activate/deactivate)
 
-### Import/Export Endpoints (requires admin privileges)
+### Import/Export & Activity Endpoints (requires admin privileges)
 - `GET /admin/import` → CSV import interface
 - `POST /api/admin/import` → Process CSV file upload
 - `GET /admin/export` → Export and print interface
+- `GET /admin/activity` → Prayer activity tracking dashboard
 - `POST /api/prayer-requests/:id` → Delete prayer request
 
 ## User Guide
@@ -126,6 +135,7 @@
 8. **Filter by Category**: Use category buttons to filter prayer requests
 9. **Import Data**: Admins can use `/admin/import` to bulk upload prayer requests from CSV
 10. **Export/Print**: Use `/admin/export` to download CSV or print formatted reports
+11. **Track Activity**: Admins can use `/admin/activity` to monitor prayer update patterns and find stale requests
 
 ## Administrator Access
 - **Super Admin Account**: admin/admin123 (created during setup)
@@ -161,7 +171,7 @@ npm run git:commit "msg"   # Add and commit with message
 ## Deployment
 - **Platform**: Cloudflare Pages
 - **Status**: ✅ PRODUCTION DEPLOYED
-- **Production URL**: https://3e72d9bb.prayer-app.pages.dev
+- **Production URL**: https://01867689.prayer-app.pages.dev
 - **Database**: Cloudflare D1 (Remote Production)
 - **Tech Stack**: Hono + TypeScript + TailwindCSS + D1 Database
 - **Authentication**: Secure session-based with bcrypt password hashing

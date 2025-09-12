@@ -295,4 +295,77 @@ export class PrayerService {
 
     return results.results as any[];
   }
+
+  // Get recent prayer activity for admin tracking
+  async getRecentPrayerActivity(limit: number = 20): Promise<any[]> {
+    const results = await this.db
+      .prepare(`
+        SELECT 
+          pr.id,
+          pr.title,
+          pr.requester_name,
+          pr.category,
+          pr.created_at,
+          pr.updated_at,
+          pc.color,
+          pc.icon,
+          CASE 
+            WHEN pr.updated_at > pr.created_at THEN 'updated'
+            ELSE 'created'
+          END as activity_type,
+          (
+            SELECT COUNT(*) 
+            FROM suggested_updates su 
+            WHERE su.prayer_request_id = pr.id 
+            AND su.status = 'pending'
+          ) as pending_updates_count,
+          (
+            SELECT COUNT(*) 
+            FROM suggested_updates su 
+            WHERE su.prayer_request_id = pr.id 
+            AND su.status = 'approved'
+          ) as approved_updates_count
+        FROM prayer_requests pr
+        LEFT JOIN prayer_categories pc ON pr.category = pc.name
+        WHERE pr.status = 'active'
+        ORDER BY 
+          CASE 
+            WHEN pr.updated_at > pr.created_at THEN pr.updated_at
+            ELSE pr.created_at
+          END DESC
+        LIMIT ?
+      `)
+      .bind(limit)
+      .all();
+
+    return results.results as any[];
+  }
+
+  // Get prayers that haven't been updated in a while (stale prayers)
+  async getStalePrayers(daysSinceUpdate: number = 30): Promise<any[]> {
+    const results = await this.db
+      .prepare(`
+        SELECT 
+          pr.id,
+          pr.title,
+          pr.requester_name,
+          pr.category,
+          pr.created_at,
+          pr.updated_at,
+          pc.color,
+          pc.icon,
+          ROUND(
+            (julianday('now') - julianday(pr.updated_at))
+          ) as days_since_update
+        FROM prayer_requests pr
+        LEFT JOIN prayer_categories pc ON pr.category = pc.name
+        WHERE pr.status = 'active'
+        AND (julianday('now') - julianday(pr.updated_at)) >= ?
+        ORDER BY pr.updated_at ASC
+      `)
+      .bind(daysSinceUpdate)
+      .all();
+
+    return results.results as any[];
+  }
 }

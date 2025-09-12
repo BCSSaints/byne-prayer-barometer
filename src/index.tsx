@@ -81,6 +81,7 @@ const renderPage = (title: string, content: string, user: any = null) => {
                             <span class="text-gray-300">Welcome, ${user.full_name || user.username}</span>
                             <span class="text-xs px-2 py-1 bg-byne-blue rounded">${user.role.replace('_', ' ').toUpperCase()}</span>
                             ${user.is_admin ? '<a href="/admin" class="bg-yellow-600 px-3 py-1 rounded text-sm hover:bg-yellow-500">Admin Panel</a>' : ''}
+                            ${user.is_admin ? '<a href="/admin/activity" class="bg-green-600 px-3 py-1 rounded text-sm hover:bg-green-500">Activity</a>' : ''}
                             ${user.role === 'super_admin' ? '<a href="/manage-users" class="bg-purple-600 px-3 py-1 rounded text-sm hover:bg-purple-500">Manage Users</a>' : ''}
                             <a href="/logout" class="bg-red-600 px-3 py-1 rounded text-sm hover:bg-red-500">Logout</a>
                         ` : `
@@ -320,7 +321,14 @@ app.get('/', requireAuth, async (c) => {
                         
                         <div class="flex justify-between items-center text-sm text-gray-500 mb-3">
                             <span><i class="fas fa-user mr-1"></i>${prayer.requester_name}</span>
-                            <span><i class="fas fa-calendar mr-1"></i>${new Date(prayer.created_at).toLocaleDateString()}</span>
+                            <div class="text-right">
+                                <div><i class="fas fa-calendar mr-1"></i>Created: ${new Date(prayer.created_at).toLocaleDateString()}</div>
+                                ${user.is_admin && prayer.updated_at !== prayer.created_at ? `
+                                    <div class="text-green-600 text-xs mt-1">
+                                        <i class="fas fa-clock mr-1"></i>Updated: ${new Date(prayer.updated_at).toLocaleDateString()} ${new Date(prayer.updated_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                    </div>
+                                ` : ''}
+                            </div>
                         </div>
                         
                         <div class="border-t pt-3">
@@ -457,12 +465,87 @@ app.get('/admin', requireAuth, requireAdmin, async (c) => {
   const prayerService = new PrayerService(c.env.DB);
   
   const pendingUpdates = await prayerService.getPendingSuggestedUpdates();
+  const recentActivity = await prayerService.getRecentPrayerActivity();
 
   const content = `
+    <div class="grid lg:grid-cols-2 gap-6 mb-6">
+        <!-- Recent Prayer Activity -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-lg font-bold mb-4">
+                <i class="fas fa-clock mr-2 text-blue-600"></i>
+                Recent Prayer Activity
+            </h3>
+            <div class="space-y-3 max-h-96 overflow-y-auto">
+                ${recentActivity.slice(0, 10).map(activity => `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div class="flex items-center space-x-3">
+                            <span class="w-3 h-3 rounded-full" style="background-color: ${activity.color}"></span>
+                            <div>
+                                <div class="font-medium text-sm">${activity.title}</div>
+                                <div class="text-xs text-gray-500">${activity.requester_name} • ${activity.category}</div>
+                            </div>
+                        </div>
+                        <div class="text-right text-xs">
+                            <div class="${activity.activity_type === 'updated' ? 'text-green-600' : 'text-blue-600'}">
+                                ${activity.activity_type === 'updated' ? 'Updated' : 'Created'}
+                            </div>
+                            <div class="text-gray-500">${new Date(activity.activity_type === 'updated' ? activity.updated_at : activity.created_at).toLocaleDateString()}</div>
+                            ${activity.pending_updates_count > 0 ? `<div class="text-orange-600 font-semibold">${activity.pending_updates_count} pending</div>` : ''}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="mt-4 pt-4 border-t">
+                <a href="/admin/activity" class="text-blue-600 hover:text-blue-800 text-sm">
+                    <i class="fas fa-arrow-right mr-1"></i>View Full Activity Log
+                </a>
+            </div>
+        </div>
+
+        <!-- Pending Updates Summary -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-lg font-bold mb-4">
+                <i class="fas fa-tasks mr-2 text-orange-600"></i>
+                Pending Updates Summary
+            </h3>
+            ${pendingUpdates.length === 0 ? `
+                <div class="text-center py-8 text-gray-500">
+                    <i class="fas fa-check-circle text-4xl mb-4 text-green-400"></i>
+                    <p>No pending updates to review.</p>
+                    <p class="text-sm mt-2">All suggestions have been processed!</p>
+                </div>
+            ` : `
+                <div class="mb-4 p-4 bg-orange-50 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <span class="text-orange-800 font-semibold">
+                            <i class="fas fa-exclamation-triangle mr-2"></i>
+                            ${pendingUpdates.length} updates waiting for review
+                        </span>
+                        <button onclick="scrollToUpdates()" class="bg-orange-600 text-white px-3 py-1 rounded text-sm hover:bg-orange-700">
+                            Review Now
+                        </button>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    ${pendingUpdates.slice(0, 5).map(update => `
+                        <div class="flex justify-between items-center p-2 bg-yellow-50 rounded">
+                            <div class="text-sm">
+                                <div class="font-medium">${update.prayer_title}</div>
+                                <div class="text-gray-500 text-xs">by ${update.suggested_by_username}</div>
+                            </div>
+                            <div class="text-xs text-gray-500">${new Date(update.created_at).toLocaleDateString()}</div>
+                        </div>
+                    `).join('')}
+                    ${pendingUpdates.length > 5 ? `<div class="text-center text-sm text-gray-500">...and ${pendingUpdates.length - 5} more</div>` : ''}
+                </div>
+            `}
+        </div>
+    </div>
+
     <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-2xl font-bold mb-6">
+        <h2 class="text-2xl font-bold mb-6" id="pending-updates">
             <i class="fas fa-shield-alt mr-2 text-yellow-600"></i>
-            Admin Panel - Review Suggested Updates
+            Review Suggested Updates
         </h2>
         
         ${pendingUpdates.length === 0 ? `
@@ -501,6 +584,14 @@ app.get('/admin', requireAuth, requireAdmin, async (c) => {
             </div>
         `}
     </div>
+
+    <script>
+        function scrollToUpdates() {
+            document.getElementById('pending-updates').scrollIntoView({ 
+                behavior: 'smooth' 
+            });
+        }
+    </script>
   `;
 
   return c.html(renderPage('Admin Panel', content, user));
@@ -731,6 +822,171 @@ app.post('/api/users/:id', requireAuth, requireSuperAdmin, async (c) => {
     console.error('Update user error:', error);
     return c.redirect('/manage-users?error=update');
   }
+});
+
+// Admin Activity Tracking Page
+app.get('/admin/activity', requireAuth, requireAdmin, async (c) => {
+  const user = c.get('user');
+  const prayerService = new PrayerService(c.env.DB);
+  
+  const recentActivity = await prayerService.getRecentPrayerActivity(50);
+  const staleRequests = await prayerService.getStalePrayers(30);
+  const categoryStats = await prayerService.getPrayerCountsByCategory();
+
+  const content = `
+    <div class="space-y-6">
+        <!-- Activity Statistics -->
+        <div class="grid md:grid-cols-4 gap-4">
+            <div class="bg-blue-500 text-white rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-blue-100 text-sm">Total Active</p>
+                        <p class="text-2xl font-bold">${categoryStats.reduce((sum, cat) => sum + cat.count, 0)}</p>
+                    </div>
+                    <i class="fas fa-praying-hands text-2xl text-blue-200"></i>
+                </div>
+            </div>
+            
+            <div class="bg-green-500 text-white rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-green-100 text-sm">Recent Activity</p>
+                        <p class="text-2xl font-bold">${recentActivity.filter(a => a.activity_type === 'updated').length}</p>
+                    </div>
+                    <i class="fas fa-clock text-2xl text-green-200"></i>
+                </div>
+            </div>
+            
+            <div class="bg-orange-500 text-white rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-orange-100 text-sm">Needs Attention</p>
+                        <p class="text-2xl font-bold">${staleRequests.length}</p>
+                    </div>
+                    <i class="fas fa-exclamation-triangle text-2xl text-orange-200"></i>
+                </div>
+            </div>
+            
+            <div class="bg-purple-500 text-white rounded-lg p-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-purple-100 text-sm">Categories</p>
+                        <p class="text-2xl font-bold">${categoryStats.length}</p>
+                    </div>
+                    <i class="fas fa-tags text-2xl text-purple-200"></i>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid lg:grid-cols-2 gap-6">
+            <!-- Full Activity Log -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-lg font-bold mb-4">
+                    <i class="fas fa-history mr-2 text-blue-600"></i>
+                    Complete Activity Log
+                </h3>
+                <div class="space-y-3 max-h-96 overflow-y-auto">
+                    ${recentActivity.map(activity => `
+                        <div class="flex items-start justify-between p-3 border rounded-lg hover:bg-gray-50">
+                            <div class="flex items-start space-x-3">
+                                <div class="flex-shrink-0 mt-1">
+                                    <span class="w-3 h-3 rounded-full inline-block" style="background-color: ${activity.color}"></span>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="font-medium text-sm">${activity.title}</div>
+                                    <div class="text-xs text-gray-500 mb-1">${activity.requester_name} • ${activity.category}</div>
+                                    <div class="flex items-center space-x-4 text-xs text-gray-500">
+                                        <span>Created: ${new Date(activity.created_at).toLocaleDateString()}</span>
+                                        ${activity.updated_at !== activity.created_at ? `
+                                            <span class="text-green-600">Updated: ${new Date(activity.updated_at).toLocaleDateString()}</span>
+                                        ` : ''}
+                                    </div>
+                                    ${activity.pending_updates_count > 0 || activity.approved_updates_count > 0 ? `
+                                        <div class="flex items-center space-x-2 mt-1">
+                                            ${activity.pending_updates_count > 0 ? `<span class="px-2 py-1 bg-orange-100 text-orange-600 text-xs rounded">${activity.pending_updates_count} pending</span>` : ''}
+                                            ${activity.approved_updates_count > 0 ? `<span class="px-2 py-1 bg-green-100 text-green-600 text-xs rounded">${activity.approved_updates_count} approved</span>` : ''}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                            <div class="flex-shrink-0 text-right">
+                                <div class="text-xs ${activity.activity_type === 'updated' ? 'text-green-600' : 'text-blue-600'} font-semibold">
+                                    ${activity.activity_type === 'updated' ? 'UPDATED' : 'NEW'}
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            <!-- Stale Requests Needing Attention -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-lg font-bold mb-4">
+                    <i class="fas fa-clock mr-2 text-orange-600"></i>
+                    Requests Needing Attention
+                </h3>
+                ${staleRequests.length === 0 ? `
+                    <div class="text-center py-8 text-gray-500">
+                        <i class="fas fa-thumbs-up text-4xl mb-4 text-green-400"></i>
+                        <p>All prayers have recent activity!</p>
+                        <p class="text-sm mt-2">No requests older than 30 days without updates.</p>
+                    </div>
+                ` : `
+                    <p class="text-orange-700 text-sm mb-4">These requests haven't been updated in 30+ days and may need follow-up:</p>
+                    <div class="space-y-3 max-h-96 overflow-y-auto">
+                        ${staleRequests.map(prayer => `
+                            <div class="flex items-start justify-between p-3 bg-orange-50 rounded-lg border border-orange-200">
+                                <div class="flex items-start space-x-3">
+                                    <span class="w-3 h-3 rounded-full mt-1 flex-shrink-0" style="background-color: ${prayer.color}"></span>
+                                    <div>
+                                        <div class="font-medium text-sm">${prayer.title}</div>
+                                        <div class="text-xs text-gray-500">${prayer.requester_name} • ${prayer.category}</div>
+                                        <div class="text-xs text-orange-600 mt-1">
+                                            <i class="fas fa-calendar mr-1"></i>
+                                            ${prayer.days_since_update} days since last update
+                                        </div>
+                                    </div>
+                                </div>
+                                <a href="/?category=${encodeURIComponent(prayer.category)}" 
+                                   class="text-blue-600 hover:text-blue-800 text-xs">
+                                    View
+                                </a>
+                            </div>
+                        `).join('')}
+                    </div>
+                `}
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-lg font-bold mb-4">
+                <i class="fas fa-tools mr-2 text-gray-600"></i>
+                Quick Admin Actions
+            </h3>
+            <div class="grid md:grid-cols-4 gap-4">
+                <a href="/admin" class="bg-blue-600 text-white p-4 rounded-lg text-center hover:bg-blue-700">
+                    <i class="fas fa-shield-alt text-2xl mb-2"></i>
+                    <div class="font-semibold">Review Updates</div>
+                </a>
+                <a href="/admin/import" class="bg-green-600 text-white p-4 rounded-lg text-center hover:bg-green-700">
+                    <i class="fas fa-upload text-2xl mb-2"></i>
+                    <div class="font-semibold">Import Prayers</div>
+                </a>
+                <a href="/admin/export" class="bg-purple-600 text-white p-4 rounded-lg text-center hover:bg-purple-700">
+                    <i class="fas fa-download text-2xl mb-2"></i>
+                    <div class="font-semibold">Export Data</div>
+                </a>
+                <a href="/manage-users" class="bg-indigo-600 text-white p-4 rounded-lg text-center hover:bg-indigo-700">
+                    <i class="fas fa-users text-2xl mb-2"></i>
+                    <div class="font-semibold">Manage Users</div>
+                </a>
+            </div>
+        </div>
+    </div>
+  `;
+
+  return c.html(renderPage('Prayer Activity Tracking', content, user));
 });
 
 // Import page (Admin only)
