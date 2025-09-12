@@ -6,10 +6,10 @@
 - **Features**: Password-protected prayer submission, update suggestions, and admin approval workflow
 
 ## URLs
-- **Production**: https://0d5ecb16.prayer-app.pages.dev
+- **Production**: https://be3e1e1d.prayer-app.pages.dev
 - **Alternative**: https://prayer-app.pages.dev
-- **Login Page**: https://0d5ecb16.prayer-app.pages.dev/login
-- **Admin Panel**: https://0d5ecb16.prayer-app.pages.dev/admin
+- **Login Page**: https://be3e1e1d.prayer-app.pages.dev/login
+- **Admin Panel**: https://be3e1e1d.prayer-app.pages.dev/admin
 
 ## Data Architecture
 - **Data Models**: Users, Prayer Requests, Suggested Updates, Sessions
@@ -111,7 +111,7 @@ npm run git:commit "msg"   # Add and commit with message
 ## Deployment
 - **Platform**: Cloudflare Pages
 - **Status**: ✅ PRODUCTION DEPLOYED
-- **Production URL**: https://0d5ecb16.prayer-app.pages.dev
+- **Production URL**: https://be3e1e1d.prayer-app.pages.dev
 - **Database**: Cloudflare D1 (Remote Production)
 - **Tech Stack**: Hono + TypeScript + TailwindCSS + D1 Database
 - **Authentication**: Secure session-based with bcrypt password hashing
