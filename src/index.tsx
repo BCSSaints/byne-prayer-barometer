@@ -241,7 +241,7 @@ app.get('/', requireAuth, async (c) => {
                 
                 <form action="/api/prayer-requests" method="POST" class="space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
                         <input type="text" name="title" required 
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-byne-blue">
                     </div>
@@ -1007,7 +1007,7 @@ app.get('/admin/import', requireAuth, requireAdmin, async (c) => {
           <h3 class="font-bold text-blue-800 mb-2">CSV Format Requirements:</h3>
           <p class="text-blue-700 mb-2">Your CSV file should have the following columns (first row as headers):</p>
           <code class="bg-blue-100 p-2 rounded text-sm block">
-            title,content,requester_name,category
+            name,content,requester_name,category
           </code>
           <p class="text-blue-700 mt-2 text-sm">
             Available categories: ${categories.map(c => c.name).join(', ')}
@@ -1017,7 +1017,7 @@ app.get('/admin/import', requireAuth, requireAdmin, async (c) => {
         <div class="mb-6 p-4 bg-yellow-50 rounded-lg">
           <h3 class="font-bold text-yellow-800 mb-2">Example CSV Content:</h3>
           <pre class="bg-yellow-100 p-2 rounded text-sm overflow-x-auto">
-title,content,requester_name,category
+name,content,requester_name,category
 "Healing for John","Please pray for John's recovery from surgery","Mary Smith","Health Need"
 "Mission Trip Safety","Pray for our team going to Honduras","Youth Pastor","Ministry Partner"
 "College Stress","Pray for peace during finals week","Sarah Johnson","College Student"
@@ -1055,7 +1055,7 @@ app.get('/admin/export', requireAuth, requireAdmin, async (c) => {
   const exportData = await prayerService.getExportData();
   
   // Generate CSV content
-  const csvHeaders = ['Title', 'Content', 'Requested By', 'Category', 'Status', 'Created Date', 'Recent Updates'];
+  const csvHeaders = ['Name', 'Content', 'Requested By', 'Category', 'Status', 'Created Date', 'Recent Updates'];
   const csvRows = exportData.map(prayer => [
     `"${prayer.title.replace(/"/g, '""')}"`,
     `"${prayer.content.replace(/"/g, '""')}"`,
@@ -1185,11 +1185,15 @@ app.post('/api/admin/import', requireAuth, requireAdmin, async (c) => {
 
     // Parse CSV (simple parsing - assumes no commas in quoted fields for now)
     const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''));
-    const requiredHeaders = ['title', 'content', 'requester_name', 'category'];
+    const requiredHeaders = ['content', 'requester_name', 'category'];
+    
+    // Check for either 'name' or 'title' column (backward compatibility)
+    const titleColumnIndex = headers.indexOf('name') !== -1 ? headers.indexOf('name') : headers.indexOf('title');
     
     const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
-    if (missingHeaders.length > 0) {
-      return c.redirect(`/admin/import?error=missing_headers&headers=${missingHeaders.join(',')}`);
+    if (missingHeaders.length > 0 || titleColumnIndex === -1) {
+      const missing = titleColumnIndex === -1 ? [...missingHeaders, 'name_or_title'] : missingHeaders;
+      return c.redirect(`/admin/import?error=missing_headers&headers=${missing.join(',')}`);
     }
 
     const prayers: PrayerRequestForm[] = [];
@@ -1199,7 +1203,7 @@ app.post('/api/admin/import', requireAuth, requireAdmin, async (c) => {
       
       if (values.length >= headers.length) {
         const prayer: PrayerRequestForm = {
-          title: values[headers.indexOf('title')] || '',
+          title: values[titleColumnIndex] || '',
           content: values[headers.indexOf('content')] || '',
           requester_name: values[headers.indexOf('requester_name')] || '',
           category: values[headers.indexOf('category')] || 'Prayer Need'
