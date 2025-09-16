@@ -241,8 +241,9 @@ app.get('/', requireAuth, async (c) => {
 
 // Public display page
 app.get('/display', async (c) => {
-  const prayerService = new PrayerService(c.env.DB);
-  const prayerRequests = await prayerService.getPublicPrayerRequests();
+  try {
+    const prayerService = new PrayerService(c.env.DB);
+    const prayerRequests = await prayerService.getPublicPrayerRequests();
 
   const content = `
     <div class="text-center mb-8">
@@ -271,7 +272,44 @@ app.get('/display', async (c) => {
         </a>
     </div>`;
 
-  return c.html(renderSimplePage('Prayer Display', content));
+    return c.html(renderSimplePage('Prayer Display', content));
+  } catch (error) {
+    console.error('Display page error:', error);
+    const errorContent = `
+      <div class="text-center">
+          <h2 class="text-2xl font-bold mb-4">BYNE CHURCH Prayer Requests</h2>
+          <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
+              <p class="text-yellow-800">Prayer requests are temporarily unavailable. Please try again shortly.</p>
+          </div>
+          <a href="/request-prayer" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700">
+              <i class="fas fa-plus mr-2"></i>Submit Prayer Request
+          </a>
+      </div>`;
+    return c.html(renderSimplePage('Prayer Display', errorContent));
+  }
+});
+
+// Simple admin page
+app.get('/admin', requireAuth, requireAdmin, async (c) => {
+  const user = c.get('user');
+  const content = `
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-2xl font-bold mb-6">Admin Dashboard</h2>
+        <div class="grid md:grid-cols-2 gap-6">
+            <div class="p-4 border rounded-lg">
+                <h3 class="font-bold mb-2">Quick Actions</h3>
+                <div class="space-y-2">
+                    <a href="/" class="block bg-blue-600 text-white p-2 rounded text-center hover:bg-blue-700">View Dashboard</a>
+                    ${user.role === 'super_admin' ? '<a href="/manage-users" class="block bg-purple-600 text-white p-2 rounded text-center hover:bg-purple-700">Manage Users</a>' : ''}
+                </div>
+            </div>
+            <div class="p-4 border rounded-lg">
+                <h3 class="font-bold mb-2">System Status</h3>
+                <p class="text-sm text-gray-600">Prayer management system operational</p>
+            </div>
+        </div>
+    </div>`;
+  return c.html(renderSimplePage('Admin Dashboard', content, user));
 });
 
 // User management (Super Admin only)
