@@ -4,11 +4,11 @@ import { PrayerRequest, SuggestedUpdate, PrayerRequestForm, SuggestedUpdateForm 
 export class PrayerService {
   constructor(private db: D1Database) {}
 
-  // Get all active prayer requests with optional category filter
+  // Get all active prayer requests with optional category filter (for authenticated users)
   async getAllPrayerRequests(category?: string): Promise<PrayerRequest[]> {
     let query = `
-      SELECT id, title, content, requester_name, submitted_by, category, status, 
-             created_at, updated_at 
+      SELECT id, title, content, requester_name, requester_email, submitted_by, category, status, 
+             is_private, created_at, updated_at 
       FROM prayer_requests 
       WHERE status != 'archived'
     `;
@@ -19,7 +19,58 @@ export class PrayerService {
       params.push(category);
     }
     
-    query += ' ORDER BY created_at DESC';
+    // Custom sorting: First by category order (Praise Report, Hospital Need, etc.), then by date
+    query += ` ORDER BY 
+      CASE category
+        WHEN 'Praise Report' THEN 1
+        WHEN 'Hospital Need' THEN 2
+        WHEN 'Health Need' THEN 3
+        WHEN 'Prayer Need' THEN 4
+        WHEN 'Long-Term Need' THEN 5
+        WHEN 'College Student' THEN 6
+        WHEN 'Military' THEN 7
+        WHEN 'Ministry Partner' THEN 8
+        ELSE 9
+      END,
+      COALESCE(updated_at, created_at) DESC`;
+
+    const results = await this.db
+      .prepare(query)
+      .bind(...params)
+      .all();
+
+    return results.results as PrayerRequest[];
+  }
+
+  // Get only public prayer requests (for display page and non-authenticated users)
+  async getPublicPrayerRequests(category?: string): Promise<PrayerRequest[]> {
+    let query = `
+      SELECT id, title, content, requester_name, requester_email, submitted_by, category, status, 
+             is_private, created_at, updated_at 
+      FROM prayer_requests 
+      WHERE status != 'archived' AND is_private = 0
+    `;
+    
+    const params = [];
+    if (category && category !== 'all') {
+      query += ' AND category = ?';
+      params.push(category);
+    }
+    
+    // Custom sorting: First by category order (Praise Report, Hospital Need, etc.), then by date
+    query += ` ORDER BY 
+      CASE category
+        WHEN 'Praise Report' THEN 1
+        WHEN 'Hospital Need' THEN 2
+        WHEN 'Health Need' THEN 3
+        WHEN 'Prayer Need' THEN 4
+        WHEN 'Long-Term Need' THEN 5
+        WHEN 'College Student' THEN 6
+        WHEN 'Military' THEN 7
+        WHEN 'Ministry Partner' THEN 8
+        ELSE 9
+      END,
+      COALESCE(updated_at, created_at) DESC`;
 
     const results = await this.db
       .prepare(query)
@@ -33,8 +84,8 @@ export class PrayerService {
   async getPrayerRequestById(id: number): Promise<PrayerRequest | null> {
     const result = await this.db
       .prepare(`
-        SELECT id, title, content, requester_name, submitted_by, category, status, 
-               created_at, updated_at 
+        SELECT id, title, content, requester_name, requester_email, submitted_by, category, status, 
+               is_private, created_at, updated_at 
         FROM prayer_requests 
         WHERE id = ?
       `)
@@ -44,14 +95,25 @@ export class PrayerService {
     return result as PrayerRequest | null;
   }
 
-  // Create new prayer request
-  async createPrayerRequest(data: PrayerRequestForm, userId: number): Promise<number> {
+  // Create new prayer request (for logged-in users)
+  async createPrayerRequest(data: PrayerRequestForm, userId: number): Promise<number>;
+  // Create new prayer request (for guests)
+  async createPrayerRequest(data: PrayerRequestForm): Promise<number>;
+  async createPrayerRequest(data: PrayerRequestForm, userId?: number): Promise<number> {
     const result = await this.db
       .prepare(`
-        INSERT INTO prayer_requests (title, content, requester_name, category, submitted_by) 
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO prayer_requests (title, content, requester_name, requester_email, category, submitted_by, is_private) 
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `)
-      .bind(data.title, data.content, data.requester_name, data.category, userId)
+      .bind(
+        data.title, 
+        data.content, 
+        data.requester_name, 
+        data.requester_email || null,
+        data.category, 
+        userId || null, 
+        data.is_private ? 1 : 0
+      )
       .run();
 
     return result.meta.last_row_id as number;

@@ -33,9 +33,11 @@ export interface PrayerRequest {
   title: string;
   content: string;
   requester_name: string;
-  submitted_by: number;
+  requester_email?: string; // Optional email for prayer requests
+  submitted_by?: number; // Optional - null for guest submissions
   category: string;
   status: 'active' | 'answered' | 'archived';
+  is_private: boolean; // If true, only visible to logged-in users
   created_at: string;
   updated_at: string;
 }
@@ -83,7 +85,9 @@ export interface PrayerRequestForm {
   title: string;
   content: string;
   requester_name: string;
+  requester_email?: string; // Optional email for contact
   category: string;
+  is_private?: boolean; // Optional - defaults to false (public)
 }
 
 export interface ImportResult {

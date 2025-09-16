@@ -67,12 +67,9 @@ const renderPage = (title: string, content: string, user: any = null) => {
             <div class="max-w-6xl mx-auto px-4 py-6">
                 <div class="flex justify-between items-center">
                     <div class="flex items-center space-x-4">
-                        <img src="https://page.gensparksite.com/v1/base64_upload/55902c19483ba9b8cde122174f4dc301" 
-                             alt="BYNE CHURCH" 
-                             class="h-8 w-auto">
                         <div class="byne-logo">
-                            <span class="text-byne-blue text-xl">BYNE</span>
-                            <span class="text-byne-dark-blue text-xl ml-2">CHURCH</span>
+                            <span class="text-byne-blue text-xl font-bold">BYNE</span>
+                            <span class="text-byne-dark-blue text-xl ml-2 font-bold">CHURCH</span>
                         </div>
                         <span class="text-gray-400 text-sm ml-4">Prayer Requests</span>
                     </div>
@@ -85,6 +82,7 @@ const renderPage = (title: string, content: string, user: any = null) => {
                             ${user.role === 'super_admin' ? '<a href="/manage-users" class="bg-purple-600 px-3 py-1 rounded text-sm hover:bg-purple-500">Manage Users</a>' : ''}
                             <a href="/logout" class="bg-red-600 px-3 py-1 rounded text-sm hover:bg-red-500">Logout</a>
                         ` : `
+                            <a href="/request-prayer" class="bg-green-600 px-3 py-1 rounded text-sm hover:bg-green-700">Request Prayer</a>
                             <a href="/login" class="bg-byne-blue px-3 py-1 rounded text-sm hover:bg-byne-dark-blue">Login</a>
                         `}
                     </div>
@@ -140,6 +138,21 @@ const renderPage = (title: string, content: string, user: any = null) => {
                     alert('Error submitting update. Please try again.');
                 }
             }
+            
+            function toggleMainPrayerContent(prayerId) {
+                const content = document.getElementById('main-prayer-content-' + prayerId);
+                const toggleText = document.getElementById('main-toggle-text-' + prayerId);
+                
+                if (content && toggleText) {
+                    if (content.classList.contains('hidden')) {
+                        content.classList.remove('hidden');
+                        toggleText.innerHTML = '<i class="fas fa-eye-slash mr-1"></i>Hide details';
+                    } else {
+                        content.classList.add('hidden');
+                        toggleText.innerHTML = '<i class="fas fa-eye mr-1"></i>Click to view details';
+                    }
+                }
+            }
         </script>
     </body>
     </html>
@@ -185,14 +198,355 @@ app.get('/login', (c) => {
         </form>
         
         <div class="mt-6 text-center">
-            <p class="text-sm text-gray-500">
-                Contact your administrator for login credentials.
+            <p class="text-sm text-gray-500 mb-3">
+                Don't have an account?
+            </p>
+            <a href="/register" class="inline-block bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm mb-3">
+                <i class="fas fa-user-plus mr-2"></i>Create Account
+            </a>
+            
+            <div class="text-center">
+                <a href="/forgot-password" class="text-byne-blue hover:text-byne-dark-blue text-sm">
+                    <i class="fas fa-key mr-1"></i>Forgot Password?
+                </a>
+            </div>
+            
+            <p class="text-xs text-gray-400 mt-3">
+                For admin access, contact your administrator.
             </p>
         </div>
     </div>
   `;
 
   return c.html(renderPage('Login', content));
+});
+
+// Registration page
+app.get('/register', (c) => {
+  const errorParam = c.req.query('error');
+  const successParam = c.req.query('success');
+  let message = '';
+  
+  if (errorParam === 'username_taken') {
+    message = '<div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">Username already taken. Please choose a different username.</div>';
+  } else if (errorParam === 'missing') {
+    message = '<div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">Please fill in all required fields.</div>';
+  } else if (errorParam === 'password_mismatch') {
+    message = '<div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">Passwords do not match.</div>';
+  } else if (errorParam === 'server') {
+    message = '<div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">Server error. Please try again.</div>';
+  } else if (successParam === '1') {
+    message = '<div class="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">Account created successfully! You can now log in.</div>';
+  }
+
+  const content = `
+    <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-2xl font-bold text-center mb-6">Create Account</h2>
+        
+        <div class="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded text-sm">
+            <i class="fas fa-info-circle mr-2"></i>
+            <strong>Member Account:</strong> You'll be able to submit prayer requests and suggest updates to existing prayers.
+        </div>
+        
+        ${message}
+        
+        <form action="/api/register" method="POST" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                <input type="text" name="full_name" required 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Username *</label>
+                <input type="text" name="username" required 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                       pattern="[a-zA-Z0-9_]+" title="Only letters, numbers, and underscores allowed">
+                <p class="text-xs text-gray-500 mt-1">Only letters, numbers, and underscores</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input type="email" name="email" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Password *</label>
+                <input type="password" name="password" required minlength="6"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+                <p class="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Confirm Password *</label>
+                <input type="password" name="confirm_password" required minlength="6"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500">
+            </div>
+            
+            <button type="submit" 
+                    class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
+                <i class="fas fa-user-plus mr-2"></i>Create Account
+            </button>
+        </form>
+        
+        <div class="mt-6 text-center">
+            <p class="text-sm text-gray-500 mb-2">
+                Already have an account?
+            </p>
+            <a href="/login" class="text-byne-blue hover:text-byne-dark-blue text-sm">
+                <i class="fas fa-sign-in-alt mr-1"></i>Sign In
+            </a>
+        </div>
+    </div>
+  `;
+
+  return c.html(renderPage('Create Account', content));
+});
+
+// Forgot Password page
+app.get('/forgot-password', (c) => {
+  const errorParam = c.req.query('error');
+  const successParam = c.req.query('success');
+  let message = '';
+  
+  if (errorParam === 'email_not_found') {
+    message = '<div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">No account found with that email address.</div>';
+  } else if (errorParam === 'missing') {
+    message = '<div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">Please enter your email address.</div>';
+  } else if (errorParam === 'server') {
+    message = '<div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">Server error. Please try again.</div>';
+  } else if (successParam === '1') {
+    const demoToken = c.req.query('demo_token');
+    const resetLink = demoToken ? `/reset-password?token=${demoToken}` : '#';
+    message = `<div class="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
+      <p><strong>Password reset instructions sent!</strong></p>
+      <p class="text-sm mt-2">In a real application, this would be sent via email.</p>
+      ${demoToken ? `<p class="text-sm mt-2"><strong>Demo Link:</strong> <a href="${resetLink}" class="text-blue-700 hover:text-blue-900 underline">Reset your password here</a></p>` : ''}
+    </div>`;
+  }
+
+  const content = `
+    <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-2xl font-bold text-center mb-6">Forgot Password</h2>
+        
+        <div class="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded text-sm">
+            <i class="fas fa-info-circle mr-2"></i>
+            Enter your email address and we'll send you instructions to reset your password.
+        </div>
+        
+        ${message}
+        
+        <form action="/api/forgot-password" method="POST" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Email Address *</label>
+                <input type="email" name="email" required 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-byne-blue">
+            </div>
+            
+            <button type="submit" 
+                    class="w-full bg-byne-blue text-white py-2 px-4 rounded-md hover:bg-byne-dark-blue focus:outline-none focus:ring-2 focus:ring-byne-blue">
+                <i class="fas fa-paper-plane mr-2"></i>Send Reset Instructions
+            </button>
+        </form>
+        
+        <div class="mt-6 text-center">
+            <p class="text-sm text-gray-500 mb-2">
+                Remember your password?
+            </p>
+            <a href="/login" class="text-byne-blue hover:text-byne-dark-blue text-sm">
+                <i class="fas fa-sign-in-alt mr-1"></i>Back to Login
+            </a>
+        </div>
+    </div>
+  `;
+
+  return c.html(renderPage('Forgot Password', content));
+});
+
+// Reset Password page
+app.get('/reset-password', (c) => {
+  const token = c.req.query('token');
+  const errorParam = c.req.query('error');
+  const successParam = c.req.query('success');
+  let message = '';
+  
+  if (!token) {
+    return c.redirect('/forgot-password?error=missing_token');
+  }
+  
+  if (errorParam === 'invalid_token') {
+    message = '<div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">This reset link is invalid or has expired. Please request a new one.</div>';
+  } else if (errorParam === 'password_mismatch') {
+    message = '<div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">Passwords do not match.</div>';
+  } else if (errorParam === 'missing') {
+    message = '<div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">Please fill in all fields.</div>';
+  } else if (errorParam === 'server') {
+    message = '<div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">Server error. Please try again.</div>';
+  } else if (successParam === '1') {
+    message = '<div class="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">Your password has been reset successfully! You can now log in with your new password.</div>';
+  }
+
+  const content = `
+    <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-2xl font-bold text-center mb-6">Reset Password</h2>
+        
+        <div class="mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-800 rounded text-sm">
+            <i class="fas fa-info-circle mr-2"></i>
+            Enter your new password below.
+        </div>
+        
+        ${message}
+        
+        <form action="/api/reset-password" method="POST" class="space-y-4">
+            <input type="hidden" name="token" value="${token}">
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">New Password *</label>
+                <input type="password" name="password" required minlength="6"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-byne-blue">
+                <p class="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password *</label>
+                <input type="password" name="confirm_password" required minlength="6"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-byne-blue">
+            </div>
+            
+            <button type="submit" 
+                    class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500">
+                <i class="fas fa-lock mr-2"></i>Reset Password
+            </button>
+        </form>
+        
+        <div class="mt-6 text-center">
+            <a href="/login" class="text-byne-blue hover:text-byne-dark-blue text-sm">
+                <i class="fas fa-sign-in-alt mr-1"></i>Back to Login
+            </a>
+        </div>
+    </div>
+  `;
+
+  return c.html(renderPage('Reset Password', content));
+});
+
+// Public prayer request page (for guests)
+app.get('/request-prayer', async (c) => {
+  const prayerService = new PrayerService(c.env.DB);
+  const categories = await prayerService.getAllCategories();
+  const errorParam = c.req.query('error');
+  const successParam = c.req.query('success');
+  let message = '';
+  
+  if (errorParam === 'missing') {
+    message = '<div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">Please fill in all required fields.</div>';
+  } else if (errorParam === 'server') {
+    message = '<div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">Server error. Please try again.</div>';
+  } else if (successParam === '1') {
+    message = '<div class="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">Your prayer request has been submitted successfully! It will be reviewed and added to our prayer list.</div>';
+  }
+
+  const content = `
+    <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-8">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-byne-blue mb-2">
+                <i class="fas fa-praying-hands mr-3"></i>
+                Submit Prayer Request
+            </h1>
+            <p class="text-gray-600">BYNE CHURCH - We're here to pray with you</p>
+        </div>
+        
+        <div class="mb-6 p-4 bg-blue-50 border border-blue-200 text-blue-800 rounded">
+            <i class="fas fa-info-circle mr-2"></i>
+            <strong>Welcome!</strong> You don't need to create an account to submit a prayer request. 
+            Our church family is here to support you in prayer.
+        </div>
+        
+        ${message}
+        
+        <form action="/api/prayer-requests/public" method="POST" class="space-y-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Prayer Request Title *</label>
+                <input type="text" name="title" required 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-byne-blue"
+                       placeholder="Brief description (e.g., 'Health concerns', 'Job search')">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                <select name="category" required 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-byne-blue">
+                    <option value="">Select a category...</option>
+                    ${categories.map(cat => `
+                        <option value="${cat.name}">${cat.name}</option>
+                    `).join('')}
+                </select>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Prayer Request Details *</label>
+                <textarea name="content" rows="5" required 
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-byne-blue"
+                          placeholder="Share your prayer request. Please be as specific as you're comfortable with."></textarea>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Your Name *</label>
+                <input type="text" name="requester_name" required 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-byne-blue"
+                       placeholder="First name or 'Anonymous' if you prefer">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Email (optional)</label>
+                <input type="email" name="requester_email" 
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-byne-blue"
+                       placeholder="For prayer updates or pastoral follow-up">
+                <p class="text-xs text-gray-500 mt-1">Optional: We may use this to follow up with encouragement or prayer updates</p>
+            </div>
+            
+            <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                <div class="flex items-start space-x-3">
+                    <input type="checkbox" name="is_private" id="guest_is_private" 
+                           class="mt-1 h-4 w-4 text-byne-blue focus:ring-byne-blue border-gray-300 rounded">
+                    <div class="flex-1">
+                        <label for="guest_is_private" class="block text-sm font-medium text-gray-700">
+                            <i class="fas fa-lock mr-2 text-yellow-600"></i>Keep Private to Church Members Only
+                        </label>
+                        <p class="text-xs text-gray-600 mt-1">
+                            If checked, only logged-in church members will see this request. 
+                            Unchecked requests may appear on our public prayer display board.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <button type="submit" 
+                    class="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 text-lg font-semibold">
+                <i class="fas fa-heart mr-2"></i>Submit Prayer Request
+            </button>
+        </form>
+        
+        <div class="mt-8 text-center">
+            <div class="border-t pt-6">
+                <p class="text-sm text-gray-500 mb-3">
+                    Want to join our prayer community?
+                </p>
+                <div class="flex justify-center space-x-4">
+                    <a href="/register" class="bg-byne-blue text-white px-4 py-2 rounded-md hover:bg-byne-dark-blue text-sm">
+                        <i class="fas fa-user-plus mr-1"></i>Create Account
+                    </a>
+                    <a href="/login" class="text-byne-blue hover:text-byne-dark-blue text-sm">
+                        <i class="fas fa-sign-in-alt mr-1"></i>Member Login
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+  `;
+
+  return c.html(renderPage('Submit Prayer Request', content));
 });
 
 // Main dashboard (protected)
@@ -268,11 +622,43 @@ app.get('/', requireAuth, async (c) => {
                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-byne-blue">
                     </div>
                     
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email (optional)</label>
+                        <input type="email" name="requester_email" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-byne-blue"
+                               placeholder="For prayer updates or follow-up">
+                        <p class="text-xs text-gray-500 mt-1">Optional: Provide email for prayer updates or pastoral follow-up</p>
+                    </div>
+                    
+                    <div class="bg-gray-50 p-4 rounded-lg border">
+                        <div class="flex items-start space-x-3">
+                            <input type="checkbox" name="is_private" id="is_private" 
+                                   class="mt-1 h-4 w-4 text-byne-blue focus:ring-byne-blue border-gray-300 rounded">
+                            <div class="flex-1">
+                                <label for="is_private" class="block text-sm font-medium text-gray-700">
+                                    <i class="fas fa-lock mr-2 text-gray-500"></i>Private Prayer Request
+                                </label>
+                                <p class="text-xs text-gray-600 mt-1">
+                                    If checked, this prayer will only be visible to logged-in church members. 
+                                    Unchecked prayers appear on the public display board.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <button type="submit" 
                             class="w-full bg-byne-blue text-white py-2 px-4 rounded-md hover:bg-byne-dark-blue">
                         <i class="fas fa-paper-plane mr-2"></i>Submit Prayer Request
                     </button>
                 </form>
+                
+                <div class="mt-4 p-3 bg-blue-50 rounded-lg border">
+                    <p class="text-sm text-blue-700">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        <strong>Note:</strong> Guests can also submit public prayer requests without logging in. 
+                        <a href="/request-prayer" class="text-blue-800 underline font-semibold">Submit as guest</a>
+                    </p>
+                </div>
             </div>
         </div>
         
@@ -296,17 +682,25 @@ app.get('/', requireAuth, async (c) => {
             </div>
             
             <div class="space-y-4">
-                ${prayerRequests.map(prayer => {
+                ${prayerRequests.map((prayer, index) => {
                   const category = categories.find(c => c.name === prayer.category);
                   return `
-                    <div class="bg-white rounded-lg shadow-md p-4 prayer-card border-l-4" style="border-left-color: ${category?.color || '#3B82F6'}">
-                        <div class="flex justify-between items-start mb-2">
-                            <div class="flex items-center space-x-2 mb-2">
-                                <span class="px-2 py-1 rounded-full text-xs font-semibold text-white" style="background-color: ${category?.color || '#3B82F6'}">
-                                    <i class="${category?.icon || 'fas fa-praying-hands'} mr-1"></i>${prayer.category}
-                                </span>
+                    <div class="bg-white rounded-lg shadow-md prayer-card border-l-4" style="border-left-color: ${category?.color || '#3B82F6'}">
+                        <!-- Prayer Header (Always Visible) -->
+                        <div class="p-4 cursor-pointer" onclick="toggleMainPrayerContent(${prayer.id})">
+                            <div class="flex justify-between items-start mb-3">
+                                <div class="flex items-center space-x-2">
+                                    <span class="px-2 py-1 rounded-full text-xs font-semibold text-white" style="background-color: ${category?.color || '#3B82F6'}">
+                                        <i class="${category?.icon || 'fas fa-praying-hands'} mr-1"></i>${prayer.category}
+                                    </span>
+                                    ${prayer.is_private ? `
+                                        <span class="px-2 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                                            <i class="fas fa-lock mr-1"></i>Private
+                                        </span>
+                                    ` : ''}
+                                </div>
                                 ${user.is_admin ? `
-                                    <form action="/api/prayer-requests/${prayer.id}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this prayer request? This action cannot be undone.')">
+                                    <form action="/api/prayer-requests/${prayer.id}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this prayer request? This action cannot be undone.')" onclick="event.stopPropagation();">
                                         <input type="hidden" name="_method" value="DELETE">
                                         <button type="submit" class="text-red-500 hover:text-red-700 text-xs">
                                             <i class="fas fa-trash"></i>
@@ -314,39 +708,53 @@ app.get('/', requireAuth, async (c) => {
                                     </form>
                                 ` : ''}
                             </div>
-                        </div>
-                        
-                        <h3 class="font-bold text-lg mb-2">${prayer.title}</h3>
-                        <p class="text-gray-600 mb-3">${prayer.content}</p>
-                        
-                        <div class="flex justify-between items-center text-sm text-gray-500 mb-3">
-                            <span><i class="fas fa-user mr-1"></i>${prayer.requester_name}</span>
-                            <div class="text-right">
-                                <div><i class="fas fa-calendar mr-1"></i>Created: ${new Date(prayer.created_at).toLocaleDateString()}</div>
-                                ${user.is_admin && prayer.updated_at !== prayer.created_at ? `
-                                    <div class="text-green-600 text-xs mt-1">
-                                        <i class="fas fa-clock mr-1"></i>Updated: ${new Date(prayer.updated_at).toLocaleDateString()} ${new Date(prayer.updated_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                    </div>
-                                ` : ''}
+                            
+                            <h3 class="font-bold text-lg mb-2 text-gray-800">${prayer.title}</h3>
+                            
+                            <div class="flex justify-between items-center text-sm text-gray-500">
+                                <span><i class="fas fa-user mr-1"></i>${prayer.requester_name}</span>
+                                <div class="text-byne-blue font-semibold text-xs">
+                                    <i class="fas fa-eye mr-1"></i>
+                                    <span id="main-toggle-text-${prayer.id}">Click to view details</span>
+                                </div>
                             </div>
                         </div>
                         
-                        <div class="border-t pt-3">
-                            <button id="update-btn-${prayer.id}" 
-                                    onclick="toggleUpdateForm(${prayer.id})"
-                                    class="bg-byne-blue text-white px-3 py-1 rounded text-sm hover:bg-byne-dark-blue">
-                                <i class="fas fa-plus mr-1"></i>Suggest Update
-                            </button>
+                        <!-- Prayer Content & Actions (Hidden by Default) -->
+                        <div id="main-prayer-content-${prayer.id}" class="hidden">
+                            <div class="px-4 pb-3 border-t border-gray-100">
+                                <p class="text-gray-700 leading-relaxed mb-3 mt-3">${prayer.content}</p>
+                                
+                                <div class="flex justify-between items-center text-sm text-gray-500 mb-3">
+                                    <div class="text-left">
+                                        <div><i class="fas fa-calendar mr-1"></i>Created: ${new Date(prayer.created_at).toLocaleDateString()}</div>
+                                        ${user.is_admin && prayer.updated_at !== prayer.created_at ? `
+                                            <div class="text-green-600 text-xs mt-1">
+                                                <i class="fas fa-clock mr-1"></i>Updated: ${new Date(prayer.updated_at).toLocaleDateString()} ${new Date(prayer.updated_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
                             
-                            <div id="update-form-${prayer.id}" class="update-form mt-3">
-                                <textarea id="update-content-${prayer.id}" 
-                                          placeholder="Share an update about this prayer request..."
-                                          class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" rows="3"></textarea>
-                                <div class="flex justify-end mt-2 space-x-2">
-                                    <button onclick="toggleUpdateForm(${prayer.id})"
-                                            class="px-3 py-1 bg-gray-400 text-white rounded text-sm hover:bg-gray-500">Cancel</button>
-                                    <button onclick="submitUpdate(${prayer.id})"
-                                            class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700">Submit</button>
+                            <!-- Update Form Section -->
+                            <div class="border-t pt-3">
+                                <button id="update-btn-${prayer.id}" 
+                                        onclick="toggleUpdateForm(${prayer.id}); event.stopPropagation();"
+                                        class="bg-byne-blue text-white px-3 py-1 rounded text-sm hover:bg-byne-dark-blue">
+                                    <i class="fas fa-plus mr-1"></i>Suggest Update
+                                </button>
+                                
+                                <div id="update-form-${prayer.id}" class="update-form mt-3">
+                                    <textarea id="update-content-${prayer.id}" 
+                                              placeholder="Share an update about this prayer request..."
+                                              class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm" rows="3"></textarea>
+                                    <div class="flex justify-end mt-2 space-x-2">
+                                        <button onclick="toggleUpdateForm(${prayer.id}); event.stopPropagation();"
+                                                class="px-3 py-1 bg-gray-400 text-white rounded text-sm hover:bg-gray-500">Cancel</button>
+                                        <button onclick="submitUpdate(${prayer.id}); event.stopPropagation();"
+                                                class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700">Submit</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -397,6 +805,119 @@ app.post('/api/login', async (c) => {
   }
 });
 
+// API: Registration endpoint
+app.post('/api/register', async (c) => {
+  try {
+    const formData = await c.req.formData();
+    const username = formData.get('username') as string;
+    const password = formData.get('password') as string;
+    const confirmPassword = formData.get('confirm_password') as string;
+    const fullName = formData.get('full_name') as string;
+    const email = formData.get('email') as string;
+
+    // Validation
+    if (!username || !password || !fullName) {
+      return c.redirect('/register?error=missing');
+    }
+
+    if (password !== confirmPassword) {
+      return c.redirect('/register?error=password_mismatch');
+    }
+
+    if (password.length < 6) {
+      return c.redirect('/register?error=password_length');
+    }
+
+    const userService = new UserService(c.env.DB);
+    
+    // Check if username already exists
+    const existingUser = await userService.getUserByUsername(username);
+    if (existingUser) {
+      return c.redirect('/register?error=username_taken');
+    }
+
+    // Create new user with member role
+    const userData: CreateUserForm = {
+      username,
+      password,
+      full_name: fullName,
+      email: email || '',
+      role: 'member' // Member role - can view prayers, create prayers, and suggest updates
+    };
+
+    await userService.createUser(userData);
+    
+    return c.redirect('/register?success=1');
+  } catch (error) {
+    console.error('Registration error:', error);
+    return c.redirect('/register?error=server');
+  }
+});
+
+// API: Forgot Password endpoint
+app.post('/api/forgot-password', async (c) => {
+  try {
+    const formData = await c.req.formData();
+    const email = formData.get('email') as string;
+
+    if (!email) {
+      return c.redirect('/forgot-password?error=missing');
+    }
+
+    const userService = new UserService(c.env.DB);
+    const token = await userService.createPasswordResetToken(email);
+    
+    if (token) {
+      // In a real application, you would send an email here
+      // For demo purposes, we'll redirect with a success message and show the reset link
+      console.log(`Password reset token for ${email}: ${token}`);
+      console.log(`Reset link: ${new URL(c.req.url).origin}/reset-password?token=${token}`);
+      
+      // For demo - you could also log this to a visible place for testing
+      return c.redirect(`/forgot-password?success=1&demo_token=${token}`);
+    } else {
+      return c.redirect('/forgot-password?error=email_not_found');
+    }
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    return c.redirect('/forgot-password?error=server');
+  }
+});
+
+// API: Reset Password endpoint
+app.post('/api/reset-password', async (c) => {
+  try {
+    const formData = await c.req.formData();
+    const token = formData.get('token') as string;
+    const password = formData.get('password') as string;
+    const confirmPassword = formData.get('confirm_password') as string;
+
+    if (!token || !password || !confirmPassword) {
+      return c.redirect(`/reset-password?token=${token}&error=missing`);
+    }
+
+    if (password !== confirmPassword) {
+      return c.redirect(`/reset-password?token=${token}&error=password_mismatch`);
+    }
+
+    if (password.length < 6) {
+      return c.redirect(`/reset-password?token=${token}&error=password_length`);
+    }
+
+    const userService = new UserService(c.env.DB);
+    const success = await userService.resetPasswordWithToken(token, password);
+    
+    if (success) {
+      return c.redirect('/reset-password?success=1');
+    } else {
+      return c.redirect(`/reset-password?token=${token}&error=invalid_token`);
+    }
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return c.redirect(`/reset-password?error=server`);
+  }
+});
+
 // API: Logout endpoint
 app.get('/logout', async (c) => {
   const sessionId = getCookie(c, 'session_id');
@@ -419,7 +940,9 @@ app.post('/api/prayer-requests', requireAuth, async (c) => {
     title: formData.get('title') as string,
     content: formData.get('content') as string,
     requester_name: formData.get('requester_name') as string,
+    requester_email: formData.get('requester_email') as string || undefined,
     category: formData.get('category') as string,
+    is_private: formData.get('is_private') === 'on', // Checkbox value
   };
 
   const prayerService = new PrayerService(c.env.DB);
@@ -1163,6 +1686,480 @@ app.get('/admin/export', requireAuth, requireAdmin, async (c) => {
   `;
 
   return c.html(renderPage('Export Prayer Requests', content, user));
+});
+
+// Embed display page (no authentication required)
+app.get('/display', async (c) => {
+  const prayerService = new PrayerService(c.env.DB);
+  
+  const selectedCategory = c.req.query('category') || 'all';
+  const prayerRequests = await prayerService.getPublicPrayerRequests(selectedCategory === 'all' ? undefined : selectedCategory);
+  const categories = await prayerService.getAllCategories();
+  const categoryStats = await prayerService.getPrayerCountsByCategory();
+
+  const content = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>BYNE CHURCH Prayer Requests - Display</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+          tailwind.config = {
+            theme: {
+              extend: {
+                colors: {
+                  'byne-blue': '#2563eb',
+                  'byne-dark-blue': '#1e40af',
+                  'byne-black': '#0f172a',
+                }
+              }
+            }
+          }
+        </script>
+        <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
+        <style>
+          .prayer-card {
+            transition: all 0.3s ease;
+          }
+          .prayer-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+          }
+          
+          /* Line clamping for titles */
+          .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+          
+          /* Smooth transitions */
+          .transition-all {
+            transition: all 0.3s ease;
+          }
+        </style>
+        <script>
+          // Auto-refresh every 5 minutes
+          setTimeout(() => {
+            window.location.reload();
+          }, 300000);
+          
+          // Optional category filtering via URL parameters
+          function filterByCategory(category) {
+            const url = new URL(window.location);
+            if (category === 'all') {
+              url.searchParams.delete('category');
+            } else {
+              url.searchParams.set('category', category);
+            }
+            window.location = url;
+          }
+          
+          // Toggle prayer content visibility
+          function togglePrayerContent(index) {
+            const content = document.getElementById('prayer-content-' + index);
+            const toggleText = document.getElementById('toggle-text-' + index);
+            
+            if (content && toggleText) {
+              if (content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                toggleText.innerHTML = '<i class="fas fa-eye-slash mr-1"></i>Click to hide';
+              } else {
+                content.classList.add('hidden');
+                toggleText.innerHTML = '<i class="fas fa-eye mr-1"></i>Click to view';
+              }
+            }
+          }
+        </script>
+    </head>
+    <body class="bg-gray-50 p-4 font-sans">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header with Church Branding -->
+            <div class="text-center mb-8">
+                <h1 class="text-4xl font-bold text-byne-blue mb-2">
+                    <i class="fas fa-church mr-3"></i>
+                    BYNE CHURCH
+                </h1>
+                <h2 class="text-2xl text-gray-700 mb-4">Prayer Requests</h2>
+                <div class="text-sm text-gray-500">
+                    Updated: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                </div>
+            </div>
+
+            <!-- Top Actions Bar -->
+            <div class="mb-6 bg-white rounded-lg shadow-md p-4">
+                <!-- Category Filters -->
+                <div class="flex flex-wrap gap-2 justify-center mb-4">
+                    <button onclick="filterByCategory('all')" 
+                            class="px-3 py-1 rounded-full text-sm transition-all ${selectedCategory === 'all' ? 'bg-byne-blue text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
+                        <i class="fas fa-th-large mr-1"></i>All Categories
+                    </button>
+                    ${categories.map(cat => {
+                      const count = categoryStats.find(s => s.category === cat.name)?.count || 0;
+                      return `
+                        <button onclick="filterByCategory('${cat.name}')" 
+                                class="px-3 py-1 rounded-full text-sm transition-all ${selectedCategory === cat.name ? 'text-white' : 'text-gray-700 hover:bg-gray-200'}"
+                                style="background-color: ${selectedCategory === cat.name ? cat.color : '#f3f4f6'}">
+                            <i class="${cat.icon} mr-1"></i>${cat.name} (${count})
+                        </button>
+                      `;
+                    }).join('')}
+                </div>
+                
+                <!-- User Access Button -->
+                <div class="text-center border-t pt-4">
+                    <a href="/register" target="_blank" 
+                       class="inline-block bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-all text-sm font-semibold shadow-md">
+                        <i class="fas fa-user-plus mr-2"></i>Request User Access
+                    </a>
+                    <p class="text-xs text-gray-500 mt-2">Create an account to submit prayers and updates</p>
+                </div>
+            </div>
+            
+            <!-- Prayer Requests Display -->
+            <div>
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+                    ${prayerRequests.map((prayer, index) => {
+                      const category = categories.find(c => c.name === prayer.category);
+                      return `
+                        <!-- Prayer Card (Click to reveal content) -->
+                        <div class="bg-white rounded-lg shadow-md prayer-card border-l-4 h-fit" 
+                             style="border-left-color: ${category?.color || '#3B82F6'}">
+                            
+                            <!-- Card Header (Always Visible) -->
+                            <div class="p-4 cursor-pointer" onclick="togglePrayerContent(${index})">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="px-2 py-1 rounded-full text-xs font-semibold text-white inline-flex items-center" 
+                                          style="background-color: ${category?.color || '#3B82F6'}">
+                                        <i class="${category?.icon || 'fas fa-praying-hands'} mr-1 text-xs"></i>${prayer.category}
+                                    </span>
+                                    <div class="text-xs text-gray-500">
+                                        ${new Date(prayer.created_at).toLocaleDateString()}
+                                    </div>
+                                </div>
+                                
+                                <!-- Prayer Title (Always Visible) -->
+                                <h3 class="font-bold text-lg mb-2 text-gray-800">${prayer.title}</h3>
+                                
+                                <!-- Requester Info (Always Visible) -->
+                                <div class="flex items-center justify-between text-xs text-gray-500">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-user mr-1 text-byne-blue"></i>
+                                        <span class="font-medium">${prayer.requester_name}</span>
+                                    </div>
+                                    <div class="text-byne-blue font-semibold">
+                                        <i class="fas fa-eye mr-1"></i>
+                                        <span id="toggle-text-${index}">Click to view</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Prayer Content (Hidden by Default) -->
+                            <div id="prayer-content-${index}" class="hidden">
+                                <div class="px-4 pb-4 border-t border-gray-100 pt-3">
+                                    <p class="text-gray-700 leading-relaxed mb-3">${prayer.content}</p>
+                                    
+                                    ${prayer.updated_at !== prayer.created_at ? `
+                                        <div class="text-xs text-green-600 flex items-center">
+                                            <i class="fas fa-clock mr-1"></i>
+                                            Updated: ${new Date(prayer.updated_at).toLocaleDateString()}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                                
+                                ${prayer.updated_at !== prayer.created_at ? `
+                                    <div class="mt-2 text-xs text-green-600 flex items-center">
+                                        <i class="fas fa-clock mr-1"></i>
+                                        Updated: ${new Date(prayer.updated_at).toLocaleDateString()}
+                                    </div>
+                                ` : ''}
+                            </div>
+                            
+                            <!-- Expandable Full Content -->
+                            <div id="card-${index}" class="hidden">
+                                <div class="px-4 pb-4 border-t bg-gray-50">
+                                    <div class="pt-3">
+                                        <h4 class="font-semibold text-sm text-gray-700 mb-2">Full Prayer Request:</h4>
+                                        <p class="text-gray-700 text-sm leading-relaxed">${prayer.content}</p>
+                                        
+                                        <div class="mt-3 pt-3 border-t text-center">
+                                            <button onclick="event.stopPropagation(); toggleCard('card-${index}')" 
+                                                    class="text-xs text-gray-500 hover:text-gray-700">
+                                                <i class="fas fa-compress-alt mr-1"></i>Click to collapse
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                      `;
+                    }).join('')}
+                </div>
+                
+                ${prayerRequests.length === 0 ? `
+                    <div class="text-center py-12">
+                        <i class="fas fa-praying-hands text-6xl text-gray-300 mb-4"></i>
+                        <h3 class="text-xl text-gray-500 mb-2">No Prayer Requests</h3>
+                        <p class="text-gray-400">
+                            ${selectedCategory === 'all' ? 'There are currently no prayer requests.' : `No prayer requests in the "${selectedCategory}" category.`}
+                        </p>
+                    </div>
+                ` : ''}
+                
+                <!-- Footer -->
+                <div class="text-center mt-12 py-8 border-t border-gray-200">
+                    <div class="text-gray-500 mb-2">
+                        <i class="fas fa-heart mr-2 text-red-500"></i>
+                        Praying together as one body in Christ
+                    </div>
+                    <div class="text-sm text-gray-400">
+                        BYNE CHURCH Prayer Ministry
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Scripture Footer -->
+        <div class="fixed bottom-0 left-0 right-0 bg-byne-blue text-white text-center py-2 text-sm">
+            <i class="fas fa-quote-left mr-2"></i>
+            "Therefore confess your sins to each other and pray for each other so that you may be healed. The prayer of a righteous person is powerful and effective." - James 5:16
+        </div>
+    </body>
+    </html>
+  `;
+
+  return c.html(content);
+});
+
+// Public prayer request page (no authentication required)
+app.get('/request-prayer', async (c) => {
+  const prayerService = new PrayerService(c.env.DB);
+  const categories = await prayerService.getAllCategories();
+
+  const content = `
+    <div class="max-w-2xl mx-auto">
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-2xl font-bold mb-6 text-center">
+          <i class="fas fa-praying-hands mr-2 text-blue-600"></i>
+          Submit a Prayer Request
+        </h2>
+        
+        <div class="mb-6 p-4 bg-blue-50 rounded-lg">
+          <p class="text-blue-700 text-sm">
+            <i class="fas fa-info-circle mr-2"></i>
+            You can submit a prayer request as a guest. To submit private prayers or updates, please 
+            <a href="/register" class="text-blue-800 underline">create an account</a>.
+          </p>
+        </div>
+
+        <form action="/api/prayer-requests/public" method="POST" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Prayer Request Title *</label>
+            <input type="text" name="title" required 
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   placeholder="Brief title for your prayer request">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Your Name *</label>
+            <input type="text" name="requester_name" required 
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   placeholder="How would you like to be identified?">
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Your Email (Optional)</label>
+            <input type="email" name="requester_email" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   placeholder="For prayer updates (optional)">
+            <p class="text-xs text-gray-500 mt-1">We'll only use this to send prayer updates if requested</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Category *</label>
+            <select name="category" required 
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">Select a category...</option>
+              ${categories.map(cat => `
+                <option value="${cat.name}">${cat.name}</option>
+              `).join('')}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Prayer Request Details *</label>
+            <textarea name="content" required rows="4" 
+                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Please share the details of your prayer request..."></textarea>
+          </div>
+
+          <div class="bg-yellow-50 p-4 rounded-lg">
+            <div class="flex items-start">
+              <i class="fas fa-exclamation-triangle text-yellow-600 mt-1 mr-2"></i>
+              <div class="text-yellow-700 text-sm">
+                <p class="font-semibold mb-1">Public Prayer Request</p>
+                <p>This prayer request will be visible to all visitors. To submit private prayers visible only to registered members, please <a href="/register" class="underline">create an account</a>.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-between pt-4">
+            <a href="/" class="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600">
+              <i class="fas fa-arrow-left mr-2"></i>Back to Prayers
+            </a>
+            <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+              <i class="fas fa-paper-plane mr-2"></i>Submit Prayer Request
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  return c.html(renderPage('Submit Prayer Request', content));
+});
+
+// API: Create public prayer request (no authentication required)
+app.post('/api/prayer-requests/public', async (c) => {
+  const formData = await c.req.formData();
+  
+  const prayerData: PrayerRequestForm = {
+    title: formData.get('title') as string,
+    content: formData.get('content') as string,
+    requester_name: formData.get('requester_name') as string,
+    requester_email: formData.get('requester_email') as string || undefined,
+    category: formData.get('category') as string,
+    is_private: false, // Public prayers are always public
+  };
+
+  const prayerService = new PrayerService(c.env.DB);
+  // Call the guest version (without userId)
+  await prayerService.createPrayerRequest(prayerData);
+  
+  return c.redirect('/?submitted=public');
+});
+
+// User management page (Super Admin only)
+app.get('/manage-users', requireAuth, requireSuperAdmin, async (c) => {
+  const user = c.get('user');
+  const userService = new UserService(c.env.DB);
+  
+  const allUsers = await userService.getAllUsers();
+
+  const content = `
+    <div class="max-w-6xl mx-auto">
+      <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-2xl font-bold mb-6">
+          <i class="fas fa-users-cog mr-2 text-purple-600"></i>
+          User Management (Super Admin)
+        </h2>
+        
+        <div class="mb-6 p-4 bg-purple-50 rounded-lg">
+          <p class="text-purple-700 text-sm">
+            <i class="fas fa-shield-alt mr-2"></i>
+            As a super admin, you can change user roles. Available roles: member, moderator, admin, super_admin
+          </p>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse">
+            <thead>
+              <tr class="bg-gray-50">
+                <th class="text-left p-3 border-b font-semibold">User</th>
+                <th class="text-left p-3 border-b font-semibold">Email</th>
+                <th class="text-left p-3 border-b font-semibold">Current Role</th>
+                <th class="text-left p-3 border-b font-semibold">Joined</th>
+                <th class="text-left p-3 border-b font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${allUsers.map(u => `
+                <tr class="border-b hover:bg-gray-50">
+                  <td class="p-3">
+                    <div class="flex items-center">
+                      <i class="fas fa-user-circle text-gray-400 mr-2"></i>
+                      <div>
+                        <div class="font-medium">${u.full_name || u.username}</div>
+                        <div class="text-sm text-gray-500">@${u.username}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="p-3 text-sm text-gray-600">${u.email || 'No email'}</td>
+                  <td class="p-3">
+                    <span class="px-2 py-1 rounded text-xs font-semibold ${
+                      u.role === 'super_admin' ? 'bg-red-100 text-red-800' :
+                      u.role === 'admin' ? 'bg-yellow-100 text-yellow-800' :
+                      u.role === 'moderator' ? 'bg-blue-100 text-blue-800' :
+                      'bg-gray-100 text-gray-800'
+                    }">
+                      ${u.role.replace('_', ' ').toUpperCase()}
+                    </span>
+                  </td>
+                  <td class="p-3 text-sm text-gray-600">
+                    ${new Date(u.created_at).toLocaleDateString()}
+                  </td>
+                  <td class="p-3">
+                    ${u.id !== user.id ? `
+                      <form action="/api/users/${u.id}/role" method="POST" class="inline">
+                        <select name="new_role" class="text-sm border rounded px-2 py-1 mr-2" 
+                                onchange="this.form.submit()">
+                          <option value="member" ${u.role === 'member' ? 'selected' : ''}>Member</option>
+                          <option value="moderator" ${u.role === 'moderator' ? 'selected' : ''}>Moderator</option>
+                          <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
+                          <option value="super_admin" ${u.role === 'super_admin' ? 'selected' : ''}>Super Admin</option>
+                        </select>
+                      </form>
+                    ` : `
+                      <span class="text-xs text-gray-500 italic">Your account</span>
+                    `}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mt-6 pt-6 border-t">
+          <div class="flex justify-between">
+            <a href="/admin" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+              <i class="fas fa-arrow-left mr-2"></i>Back to Admin
+            </a>
+            <div class="text-sm text-gray-500">
+              Total users: ${allUsers.length}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return c.html(renderPage('User Management', content, user));
+});
+
+// API: Update user role (Super Admin only)
+app.post('/api/users/:id/role', requireAuth, requireSuperAdmin, async (c) => {
+  try {
+    const userId = parseInt(c.req.param('id'));
+    const formData = await c.req.formData();
+    const newRole = formData.get('new_role') as string;
+
+    const validRoles = ['member', 'moderator', 'admin', 'super_admin'];
+    if (!validRoles.includes(newRole)) {
+      return c.redirect('/manage-users?error=invalid_role');
+    }
+
+    const userService = new UserService(c.env.DB);
+    await userService.updateUserRole(userId, newRole);
+    
+    return c.redirect('/manage-users?updated=success');
+  } catch (error) {
+    console.error('Update user role error:', error);
+    return c.redirect('/manage-users?error=update_failed');
+  }
 });
 
 // API: Import CSV (Admin only)
