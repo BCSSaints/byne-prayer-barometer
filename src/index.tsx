@@ -172,7 +172,11 @@ app.get('/request-prayer', async (c) => {
                 <label class="block text-sm font-medium text-gray-700 mb-2">Category *</label>
                 <select name="category" required class="w-full px-3 py-2 border border-gray-300 rounded-md">
                     <option value="">Select a category...</option>
-                    ${categories.map(cat => `<option value="${cat.name}">${cat.name}</option>`).join('')}
+                    ${categories.map(cat => `
+                        <option value="${cat.name}" style="color: ${cat.color}">
+                            <i class="${cat.icon}"></i> ${cat.name}
+                        </option>
+                    `).join('')}
                 </select>
             </div>
             <div>
@@ -217,7 +221,11 @@ app.get('/', requireAuth, async (c) => {
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
                         <select name="category" required class="w-full px-3 py-2 border border-gray-300 rounded-md">
-                            ${categories.map(cat => `<option value="${cat.name}">${cat.name}</option>`).join('')}
+                            ${categories.map(cat => `
+                                <option value="${cat.name}" style="color: ${cat.color}">
+                                    <i class="${cat.icon}"></i> ${cat.name}
+                                </option>
+                            `).join('')}
                         </select>
                     </div>
                     <div>
@@ -245,13 +253,39 @@ app.get('/', requireAuth, async (c) => {
         
         <!-- Prayer Requests List -->
         <div class="lg:col-span-2">
-            <h2 class="text-xl font-bold mb-4">Prayer Requests (${prayerRequests.length})</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">Prayer Requests (${prayerRequests.length})</h2>
+            </div>
+            
+            <!-- Category Filter -->
+            <div class="mb-6 p-4 bg-white rounded-lg shadow-sm">
+                <h3 class="font-semibold mb-3 text-gray-700">Filter by Category:</h3>
+                <div class="flex flex-wrap gap-2">
+                    <a href="/" class="px-3 py-1 rounded-full text-xs font-medium ${selectedCategory === 'all' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}">
+                        All Categories
+                    </a>
+                    ${categories.map(cat => {
+                      const isSelected = selectedCategory === cat.name;
+                      return `
+                        <a href="/?category=${encodeURIComponent(cat.name)}" 
+                           class="px-3 py-1 rounded-full text-xs font-medium text-white hover:opacity-80"
+                           style="background-color: ${isSelected ? cat.color : cat.color + '80'}; ${isSelected ? '' : 'opacity: 0.7;'}">
+                            <i class="${cat.icon} mr-1"></i>${cat.name}
+                        </a>
+                      `;
+                    }).join('')}
+                </div>
+            </div>
             <div class="space-y-4">
-                ${prayerRequests.map(prayer => `
-                    <div class="bg-white rounded-lg shadow-md p-4">
+                ${prayerRequests.map(prayer => {
+                  const category = categories.find(c => c.name === prayer.category);
+                  return `
+                    <div class="bg-white rounded-lg shadow-md p-4 border-l-4" style="border-left-color: ${category?.color || '#3B82F6'}">
                         <div class="flex justify-between items-start mb-2">
                             <h3 class="font-bold text-lg">${prayer.title}</h3>
-                            <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">${prayer.category}</span>
+                            <span class="px-2 py-1 rounded text-xs font-semibold text-white" style="background-color: ${category?.color || '#3B82F6'}">
+                                <i class="${category?.icon || 'fas fa-praying-hands'} mr-1"></i>${prayer.category}
+                            </span>
                         </div>
                         <p class="text-gray-700 mb-3">${prayer.content}</p>
                         <div class="flex justify-between items-center">
@@ -259,12 +293,13 @@ app.get('/', requireAuth, async (c) => {
                                 By: ${prayer.requester_name} | ${new Date(prayer.created_at).toLocaleDateString()}
                                 ${prayer.is_private ? '<span class="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs">Private</span>' : ''}
                             </div>
-                            <button onclick="suggestUpdate(${prayer.id}, '${prayer.title}')" class="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">
+                            <button onclick="suggestUpdate(${prayer.id}, '${prayer.title.replace(/'/g, "\\'")}\')" class="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">
                                 <i class="fas fa-edit mr-1"></i>Suggest Update
                             </button>
                         </div>
                     </div>
-                `).join('')}
+                  `;
+                }).join('')}
             </div>
         </div>
     </div>`;
@@ -315,6 +350,7 @@ app.get('/display', async (c) => {
   try {
     const prayerService = new PrayerService(c.env.DB);
     const prayerRequests = await prayerService.getPublicPrayerRequests();
+    const categories = await prayerService.getAllCategories();
 
   const content = `
     <div class="text-center mb-8">
@@ -323,18 +359,23 @@ app.get('/display', async (c) => {
     </div>
     
     <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        ${prayerRequests.map(prayer => `
-            <div class="bg-white rounded-lg shadow-md p-4">
+        ${prayerRequests.map(prayer => {
+          const category = categories.find(c => c.name === prayer.category);
+          return `
+            <div class="bg-white rounded-lg shadow-md p-4 border-l-4" style="border-left-color: ${category?.color || '#3B82F6'}">
                 <div class="flex justify-between items-start mb-2">
                     <h3 class="font-bold text-lg">${prayer.title}</h3>
-                    <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">${prayer.category}</span>
+                    <span class="px-2 py-1 rounded text-xs font-semibold text-white" style="background-color: ${category?.color || '#3B82F6'}">
+                        <i class="${category?.icon || 'fas fa-praying-hands'} mr-1"></i>${prayer.category}
+                    </span>
                 </div>
                 <p class="text-gray-700 mb-2">${prayer.content}</p>
                 <div class="text-sm text-gray-500">
                     By: ${prayer.requester_name} | ${new Date(prayer.created_at).toLocaleDateString()}
                 </div>
             </div>
-        `).join('')}
+          `;
+        }).join('')}
     </div>
     
     <div class="text-center mt-8">
