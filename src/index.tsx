@@ -513,26 +513,31 @@ app.get('/manage-users', requireAuth, requireSuperAdmin, async (c) => {
 
 // API Routes
 app.post('/api/login', async (c) => {
-  const formData = await c.req.formData();
-  const credentials: LoginCredentials = {
-    username: formData.get('username') as string,
-    password: formData.get('password') as string
-  };
+  try {
+    const formData = await c.req.formData();
+    const credentials: LoginCredentials = {
+      username: formData.get('username') as string,
+      password: formData.get('password') as string
+    };
 
-  const authService = new AuthService(c.env.DB);
-  const user = await authService.authenticate(credentials.username, credentials.password);
+    const authService = new AuthService(c.env.DB);
+    const user = await authService.authenticateUser(credentials.username, credentials.password);
 
-  if (user) {
-    const sessionId = await authService.createSession(user.id);
-    setCookie(c, 'session_id', sessionId, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'Strict',
-      maxAge: 1440 * 60 // 24 hours
-    });
-    return c.redirect('/');
-  } else {
-    return c.redirect('/login?error=invalid');
+    if (user) {
+      const sessionId = await authService.createSession(user.id);
+      setCookie(c, 'session_id', sessionId, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'Strict',
+        maxAge: 1440 * 60 // 24 hours
+      });
+      return c.redirect('/');
+    } else {
+      return c.redirect('/login?error=invalid');
+    }
+  } catch (error) {
+    console.error('Login error:', error);
+    return c.redirect('/login?error=server');
   }
 });
 
