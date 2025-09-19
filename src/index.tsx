@@ -195,12 +195,13 @@ app.get('/request-prayer', async (c) => {
 
 // Main dashboard (protected)
 app.get('/', requireAuth, async (c) => {
-  const user = c.get('user');
-  const prayerService = new PrayerService(c.env.DB);
-  
-  const selectedCategory = c.req.query('category') || 'all';
-  const prayerRequests = await prayerService.getAllPrayerRequests(selectedCategory === 'all' ? undefined : selectedCategory);
-  const categories = await prayerService.getAllCategories();
+  try {
+    const user = c.get('user');
+    const prayerService = new PrayerService(c.env.DB);
+    
+    const selectedCategory = c.req.query('category') || 'all';
+    const prayerRequests = await prayerService.getAllPrayerRequests(selectedCategory === 'all' ? undefined : selectedCategory);
+    const categories = await prayerService.getAllCategories();
 
   const content = `
     <div class="grid lg:grid-cols-3 gap-8">
@@ -268,7 +269,45 @@ app.get('/', requireAuth, async (c) => {
         </div>
     </div>`;
 
-  return c.html(renderSimplePage('Prayer Dashboard', content, user));
+    return c.html(renderSimplePage('Prayer Dashboard', content, user));
+  } catch (error) {
+    console.error('Dashboard error:', error);
+    // Redirect to safe fallback page instead of showing error
+    return c.redirect('/home');
+  }
+});
+
+// Fallback homepage for unauthenticated users
+app.get('/home', async (c) => {
+  const content = `
+    <div class="text-center">
+        <h1 class="text-4xl font-bold text-blue-600 mb-6">BYNE CHURCH</h1>
+        <h2 class="text-2xl text-gray-700 mb-8">Prayer Request System</h2>
+        
+        <div class="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <i class="fas fa-tv text-3xl text-blue-600 mb-4"></i>
+                <h3 class="font-bold text-lg mb-2">View Prayers</h3>
+                <p class="text-gray-600 text-sm mb-4">See current prayer requests from our church family</p>
+                <a href="/display" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">View Display</a>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <i class="fas fa-praying-hands text-3xl text-green-600 mb-4"></i>
+                <h3 class="font-bold text-lg mb-2">Submit Request</h3>
+                <p class="text-gray-600 text-sm mb-4">Share a prayer request with our community</p>
+                <a href="/request-prayer" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Submit Prayer</a>
+            </div>
+            
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <i class="fas fa-user text-3xl text-purple-600 mb-4"></i>
+                <h3 class="font-bold text-lg mb-2">Member Login</h3>
+                <p class="text-gray-600 text-sm mb-4">Access private prayers and member features</p>
+                <a href="/login" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">Login</a>
+            </div>
+        </div>
+    </div>`;
+  return c.html(renderSimplePage('BYNE CHURCH Prayer System', content));
 });
 
 // Public display page
@@ -323,10 +362,11 @@ app.get('/display', async (c) => {
 
 // Admin dashboard with pending updates
 app.get('/admin', requireAuth, requireAdmin, async (c) => {
-  const user = c.get('user');
-  const prayerService = new PrayerService(c.env.DB);
-  
-  const pendingUpdates = await prayerService.getPendingSuggestedUpdates();
+  try {
+    const user = c.get('user');
+    const prayerService = new PrayerService(c.env.DB);
+    
+    const pendingUpdates = await prayerService.getPendingSuggestedUpdates();
 
   const content = `
     <div class="space-y-6">
@@ -405,7 +445,21 @@ app.get('/admin', requireAuth, requireAdmin, async (c) => {
             </div>
         </div>
     </div>`;
-  return c.html(renderSimplePage('Admin Dashboard', content, user));
+    return c.html(renderSimplePage('Admin Dashboard', content, user));
+  } catch (error) {
+    console.error('Admin dashboard error:', error);
+    const errorContent = `
+      <div class="bg-red-50 border border-red-200 rounded-lg p-6">
+        <h2 class="text-xl font-bold text-red-800 mb-4">Admin Dashboard Error</h2>
+        <p class="text-red-700">There was an issue loading the admin dashboard.</p>
+        <p class="text-red-600 text-sm mt-2">Error: ${error instanceof Error ? error.message : 'Unknown error'}</p>
+        <div class="mt-4 space-x-4">
+          <a href="/" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Main Dashboard</a>
+          <a href="/display" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Public Display</a>
+        </div>
+      </div>`;
+    return c.html(renderSimplePage('Admin Error', errorContent, c.get('user')));
+  }
 });
 
 // User management (Super Admin only)
