@@ -6,13 +6,13 @@
 - **Features**: Password-protected prayer submission, update suggestions, and admin approval workflow
 
 ## URLs
-- **Production**: https://83719da9.prayer-app.pages.dev
+- **Production**: https://e0b1f20f.prayer-app.pages.dev
 - **Alternative**: https://prayer-app.pages.dev  
-- **Public Display**: https://83719da9.prayer-app.pages.dev/display
-- **Submit Prayer (Guest)**: https://83719da9.prayer-app.pages.dev/request-prayer
-- **Login Page**: https://83719da9.prayer-app.pages.dev/login
-- **Admin Panel**: https://83719da9.prayer-app.pages.dev/admin
-- **User Management**: https://83719da9.prayer-app.pages.dev/manage-users
+- **Public Display**: https://e0b1f20f.prayer-app.pages.dev/display
+- **Submit Prayer (Guest)**: https://e0b1f20f.prayer-app.pages.dev/request-prayer
+- **Login Page**: https://e0b1f20f.prayer-app.pages.dev/login
+- **Admin Panel**: https://e0b1f20f.prayer-app.pages.dev/admin
+- **User Management**: https://e0b1f20f.prayer-app.pages.dev/manage-users
 - **GitHub Repository**: https://github.com/BCSSaints/byne-prayer-barometer
 
 ## Data Architecture
@@ -184,7 +184,7 @@ npm run git:commit "msg"   # Add and commit with message
 ## Deployment
 - **Platform**: Cloudflare Pages
 - **Status**: ✅ PRODUCTION DEPLOYED WITH COLOR CODING
-- **Production URL**: https://83719da9.prayer-app.pages.dev
+- **Production URL**: https://e0b1f20f.prayer-app.pages.dev
 - **Database**: Cloudflare D1 (Remote Production) - prayer-app-production
 - **Tech Stack**: Hono + TypeScript + TailwindCSS + D1 Database + FontAwesome Icons
 - **Authentication**: Secure session-based with bcrypt password hashing
