@@ -184,6 +184,17 @@ export class PrayerService {
 
   // Approve suggested update
   async approveSuggestedUpdate(updateId: number, adminId: number, adminNotes?: string): Promise<void> {
+    // First get the suggested update details
+    const update = await this.db
+      .prepare('SELECT prayer_request_id, suggested_content FROM suggested_updates WHERE id = ?')
+      .bind(updateId)
+      .first() as any;
+
+    if (!update) {
+      throw new Error('Suggested update not found');
+    }
+
+    // Mark the suggested update as approved
     await this.db
       .prepare(`
         UPDATE suggested_updates 
@@ -196,22 +207,16 @@ export class PrayerService {
       .bind(adminId, adminNotes || '', updateId)
       .run();
 
-    // Also update the prayer request's updated_at timestamp
-    const update = await this.db
-      .prepare('SELECT prayer_request_id FROM suggested_updates WHERE id = ?')
-      .bind(updateId)
-      .first() as any;
-
-    if (update) {
-      await this.db
-        .prepare(`
-          UPDATE prayer_requests 
-          SET updated_at = datetime('now') 
-          WHERE id = ?
-        `)
-        .bind(update.prayer_request_id)
-        .run();
-    }
+    // CRITICAL FIX: Actually update the prayer request content with the suggested content
+    await this.db
+      .prepare(`
+        UPDATE prayer_requests 
+        SET content = ?, 
+            updated_at = datetime('now') 
+        WHERE id = ?
+      `)
+      .bind(update.suggested_content, update.prayer_request_id)
+      .run();
   }
 
   // Reject suggested update

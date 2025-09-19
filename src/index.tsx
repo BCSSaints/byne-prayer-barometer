@@ -50,6 +50,33 @@ const renderSimplePage = (title: string, content: string, user: any = null) => {
     <div class="max-w-6xl mx-auto px-4 py-8">
         ${content}
     </div>
+    
+    <script>
+        function suggestUpdate(prayerId, prayerTitle) {
+            const newContent = prompt('Suggest an update for: "' + prayerTitle + '"\\n\\nEnter the updated prayer content:');
+            if (newContent && newContent.trim()) {
+                fetch('/api/prayer-requests/' + prayerId + '/suggest-update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ suggested_content: newContent.trim() })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Update suggestion submitted! An admin will review it shortly.');
+                    } else {
+                        alert('Error submitting suggestion. Please try again.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error submitting suggestion. Please try again.');
+                });
+            }
+        }
+    </script>
 </body>
 </html>`;
 };
@@ -225,10 +252,15 @@ app.get('/', requireAuth, async (c) => {
                             <h3 class="font-bold text-lg">${prayer.title}</h3>
                             <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">${prayer.category}</span>
                         </div>
-                        <p class="text-gray-700 mb-2">${prayer.content}</p>
-                        <div class="text-sm text-gray-500">
-                            By: ${prayer.requester_name} | ${new Date(prayer.created_at).toLocaleDateString()}
-                            ${prayer.is_private ? '<span class="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs">Private</span>' : ''}
+                        <p class="text-gray-700 mb-3">${prayer.content}</p>
+                        <div class="flex justify-between items-center">
+                            <div class="text-sm text-gray-500">
+                                By: ${prayer.requester_name} | ${new Date(prayer.created_at).toLocaleDateString()}
+                                ${prayer.is_private ? '<span class="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs">Private</span>' : ''}
+                            </div>
+                            <button onclick="suggestUpdate(${prayer.id}, '${prayer.title}')" class="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">
+                                <i class="fas fa-edit mr-1"></i>Suggest Update
+                            </button>
                         </div>
                     </div>
                 `).join('')}
@@ -289,23 +321,87 @@ app.get('/display', async (c) => {
   }
 });
 
-// Simple admin page
+// Admin dashboard with pending updates
 app.get('/admin', requireAuth, requireAdmin, async (c) => {
   const user = c.get('user');
+  const prayerService = new PrayerService(c.env.DB);
+  
+  const pendingUpdates = await prayerService.getPendingSuggestedUpdates();
+
   const content = `
-    <div class="bg-white rounded-lg shadow-md p-6">
-        <h2 class="text-2xl font-bold mb-6">Admin Dashboard</h2>
-        <div class="grid md:grid-cols-2 gap-6">
-            <div class="p-4 border rounded-lg">
-                <h3 class="font-bold mb-2">Quick Actions</h3>
-                <div class="space-y-2">
-                    <a href="/" class="block bg-blue-600 text-white p-2 rounded text-center hover:bg-blue-700">View Dashboard</a>
-                    ${user.role === 'super_admin' ? '<a href="/manage-users" class="block bg-purple-600 text-white p-2 rounded text-center hover:bg-purple-700">Manage Users</a>' : ''}
+    <div class="space-y-6">
+        <!-- Pending Updates Section -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-bold mb-6">
+                <i class="fas fa-clock mr-2 text-orange-600"></i>
+                Pending Prayer Updates (${pendingUpdates.length})
+            </h2>
+            
+            ${pendingUpdates.length === 0 ? `
+                <div class="text-center py-8 text-gray-500">
+                    <i class="fas fa-check-circle text-4xl mb-4 text-green-400"></i>
+                    <p>No pending updates to review!</p>
                 </div>
-            </div>
-            <div class="p-4 border rounded-lg">
-                <h3 class="font-bold mb-2">System Status</h3>
-                <p class="text-sm text-gray-600">Prayer management system operational</p>
+            ` : `
+                <div class="space-y-4">
+                    ${pendingUpdates.map(update => `
+                        <div class="border rounded-lg p-4 bg-orange-50">
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <h4 class="font-bold text-lg">${update.prayer_title}</h4>
+                                    <p class="text-sm text-gray-600">Suggested by: ${update.suggested_by_username}</p>
+                                    <p class="text-sm text-gray-500">Date: ${new Date(update.created_at).toLocaleDateString()}</p>
+                                </div>
+                                <span class="px-2 py-1 bg-orange-200 text-orange-800 rounded text-xs">PENDING</span>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <h5 class="font-medium text-gray-700 mb-2">Current Content:</h5>
+                                <div class="bg-gray-100 p-3 rounded text-sm">${update.original_content}</div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <h5 class="font-medium text-green-700 mb-2">Suggested Update:</h5>
+                                <div class="bg-green-50 border border-green-200 p-3 rounded text-sm">${update.suggested_content}</div>
+                            </div>
+                            
+                            <div class="flex gap-2">
+                                <form action="/api/suggested-updates/${update.id}/approve" method="POST" class="inline">
+                                    <input type="hidden" name="admin_notes" value="Approved">
+                                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">
+                                        <i class="fas fa-check mr-1"></i>Approve & Apply Update
+                                    </button>
+                                </form>
+                                <form action="/api/suggested-updates/${update.id}/reject" method="POST" class="inline">
+                                    <input type="hidden" name="admin_notes" value="Rejected">
+                                    <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded text-sm hover:bg-red-700">
+                                        <i class="fas fa-times mr-1"></i>Reject
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `}
+        </div>
+        
+        <!-- Quick Actions -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-xl font-bold mb-4">Quick Actions</h3>
+            <div class="grid md:grid-cols-3 gap-4">
+                <a href="/" class="bg-blue-600 text-white p-4 rounded text-center hover:bg-blue-700">
+                    <i class="fas fa-home text-2xl mb-2"></i>
+                    <div>View Dashboard</div>
+                </a>
+                ${user.role === 'super_admin' ? `
+                <a href="/manage-users" class="bg-purple-600 text-white p-4 rounded text-center hover:bg-purple-700">
+                    <i class="fas fa-users text-2xl mb-2"></i>
+                    <div>Manage Users</div>
+                </a>` : ''}
+                <a href="/display" class="bg-green-600 text-white p-4 rounded text-center hover:bg-green-700">
+                    <i class="fas fa-tv text-2xl mb-2"></i>
+                    <div>Public Display</div>
+                </a>
             </div>
         </div>
     </div>`;
@@ -464,6 +560,59 @@ app.post('/api/users/:id/role', requireAuth, requireSuperAdmin, async (c) => {
     return c.redirect('/manage-users?updated=success');
   } catch (error) {
     return c.redirect('/manage-users?error=update_failed');
+  }
+});
+
+// API: Approve suggested update
+app.post('/api/suggested-updates/:id/approve', requireAuth, requireAdmin, async (c) => {
+  try {
+    const user = c.get('user');
+    const updateId = parseInt(c.req.param('id'));
+    const formData = await c.req.formData();
+    const adminNotes = formData.get('admin_notes') as string;
+
+    const prayerService = new PrayerService(c.env.DB);
+    await prayerService.approveSuggestedUpdate(updateId, user.id, adminNotes);
+    
+    return c.redirect('/admin?approved=success');
+  } catch (error) {
+    console.error('Approve update error:', error);
+    return c.redirect('/admin?error=approve_failed');
+  }
+});
+
+// API: Reject suggested update  
+app.post('/api/suggested-updates/:id/reject', requireAuth, requireAdmin, async (c) => {
+  try {
+    const user = c.get('user');
+    const updateId = parseInt(c.req.param('id'));
+    const formData = await c.req.formData();
+    const adminNotes = formData.get('admin_notes') as string;
+
+    const prayerService = new PrayerService(c.env.DB);
+    await prayerService.rejectSuggestedUpdate(updateId, user.id, adminNotes);
+    
+    return c.redirect('/admin?rejected=success');
+  } catch (error) {
+    console.error('Reject update error:', error);
+    return c.redirect('/admin?error=reject_failed');
+  }
+});
+
+// API: Suggest prayer update
+app.post('/api/prayer-requests/:id/suggest-update', requireAuth, async (c) => {
+  try {
+    const user = c.get('user');
+    const prayerRequestId = parseInt(c.req.param('id'));
+    const { suggested_content } = await c.req.json();
+
+    const prayerService = new PrayerService(c.env.DB);
+    await prayerService.createSuggestedUpdate(prayerRequestId, { suggested_content }, user.id);
+    
+    return c.json({ success: true, message: 'Update suggestion submitted for admin review' });
+  } catch (error) {
+    console.error('Suggest update error:', error);
+    return c.json({ success: false, error: 'Failed to submit update suggestion' }, 500);
   }
 });
 
