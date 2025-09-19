@@ -170,6 +170,7 @@ export class PrayerService {
           su.suggested_content, 
           su.created_at,
           pr.title as prayer_title,
+          pr.content as original_content,
           u.username as suggested_by_username
         FROM suggested_updates su
         JOIN prayer_requests pr ON su.prayer_request_id = pr.id
