@@ -6,13 +6,14 @@
 - **Features**: Password-protected prayer submission, update suggestions, and admin approval workflow
 
 ## URLs
-- **Production**: https://d805b0e4.prayer-app.pages.dev
-- **Alternative**: https://prayer-app.pages.dev
-- **Login Page**: https://d805b0e4.prayer-app.pages.dev/login
-- **Admin Panel**: https://d805b0e4.prayer-app.pages.dev/admin
-- **Activity Tracking**: https://d805b0e4.prayer-app.pages.dev/admin/activity
-- **User Management**: https://d805b0e4.prayer-app.pages.dev/manage-users
-- **Import/Export**: https://d805b0e4.prayer-app.pages.dev/admin/import
+- **Production**: https://83719da9.prayer-app.pages.dev
+- **Alternative**: https://prayer-app.pages.dev  
+- **Public Display**: https://83719da9.prayer-app.pages.dev/display
+- **Submit Prayer (Guest)**: https://83719da9.prayer-app.pages.dev/request-prayer
+- **Login Page**: https://83719da9.prayer-app.pages.dev/login
+- **Admin Panel**: https://83719da9.prayer-app.pages.dev/admin
+- **User Management**: https://83719da9.prayer-app.pages.dev/manage-users
+- **GitHub Repository**: https://github.com/BCSSaints/byne-prayer-barometer
 
 ## Data Architecture
 - **Data Models**: Users, Prayer Requests, Suggested Updates, Sessions
@@ -52,11 +53,14 @@
 - Real-time user statistics and activity tracking
 - Email and full name support for better user profiles
 
-✅ **Prayer Request Categories (NEW)**
+✅ **Prayer Request Categories with Color Coding (UPDATED)**
 - 8 pre-configured categories: Praise Report, Hospital Need, Health Need, Prayer Need, Long-Term Need, College Student, Military, Ministry Partner
-- Color-coded category badges with custom icons
-- Filter prayers by category with real-time counts
-- Visual category indicators on prayer cards
+- **Full color coding system implemented**: Each category has distinct colors and icons
+- Colored left borders on prayer cards matching category colors
+- Colored category badges with white text for high contrast
+- Category-specific FontAwesome icons (heart, hospital, praying-hands, etc.)
+- Enhanced dropdown menus showing category colors
+- Filter prayers by category with real-time counts and visual indicators
 
 ✅ **Import/Export System (NEW)**
 - CSV import functionality for bulk prayer requests
@@ -83,11 +87,14 @@
 - Professional typography matching church identity
 - Removed default credentials from login page for security
 
-✅ **Enhanced Database Schema**
+✅ **Enhanced Database Schema with Guest Support**
 - Users table with role-based permissions and full profiles
 - Prayer requests with status tracking (active/answered/archived)
-- Suggested updates with approval workflow
+- **Guest prayer submissions**: Support for non-registered users to submit public prayers
+- Email fields for prayer requesters (both registered and guest users)
+- Suggested updates with approval workflow and content replacement system
 - Sessions table for secure authentication
+- Prayer categories table with custom colors, icons, and sort ordering
 - Permissions and role management system
 
 ✅ **Responsive UI**
@@ -100,12 +107,18 @@
 
 ### Public Endpoints
 - `GET /` → Main dashboard (redirects to `/login` if not authenticated)
+- `GET /home` → Public landing page with navigation options
+- `GET /display` → **Public prayer display with color coding** (no authentication required)
+- `GET /request-prayer` → **Guest prayer submission form** (no authentication required)
 - `GET /login` → Login page with credentials form
+- `GET /register` → New user registration form
 - `GET /logout` → Logout and clear session
 
 ### API Endpoints
 - `POST /api/login` → Authenticate user and create session
+- `POST /api/register` → Register new user account
 - `POST /api/prayer-requests` → Submit new prayer request (requires auth)
+- `POST /api/prayer-requests/public` → **Submit guest prayer request** (no authentication)
 - `POST /api/prayer-requests/:id/suggest-update` → Suggest update (requires auth, JSON body)
 
 ### Admin Endpoints (requires admin privileges)
@@ -170,12 +183,13 @@ npm run git:commit "msg"   # Add and commit with message
 
 ## Deployment
 - **Platform**: Cloudflare Pages
-- **Status**: ✅ PRODUCTION DEPLOYED
-- **Production URL**: https://d805b0e4.prayer-app.pages.dev
-- **Database**: Cloudflare D1 (Remote Production)
-- **Tech Stack**: Hono + TypeScript + TailwindCSS + D1 Database
+- **Status**: ✅ PRODUCTION DEPLOYED WITH COLOR CODING
+- **Production URL**: https://83719da9.prayer-app.pages.dev
+- **Database**: Cloudflare D1 (Remote Production) - prayer-app-production
+- **Tech Stack**: Hono + TypeScript + TailwindCSS + D1 Database + FontAwesome Icons
 - **Authentication**: Secure session-based with bcrypt password hashing
-- **Last Updated**: September 3, 2025
+- **Color System**: 8 distinct category colors with matching icons and borders
+- **Last Updated**: September 19, 2025
 
 ## Security Features
 - Password hashing with bcrypt (12 rounds)
