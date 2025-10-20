@@ -148,10 +148,14 @@ app.get('/request-prayer', async (c) => {
         </h2>
         
         <div class="mb-6 p-4 bg-blue-50 rounded-lg">
-            <p class="text-blue-700 text-sm">
+            <p class="text-blue-700 text-sm mb-2">
                 <i class="fas fa-info-circle mr-2"></i>
-                You can submit a prayer request as a guest. To submit private prayers, please 
+                You can submit a prayer request as a guest. To submit private prayers, please
                 <a href="/register" class="text-blue-800 underline">create an account</a>.
+            </p>
+            <p class="text-blue-700 text-sm">
+                <i class="fas fa-shield-alt mr-2"></i>
+                All prayer requests require admin approval before being published.
             </p>
         </div>
 
@@ -213,6 +217,10 @@ app.get('/', requireAuth, async (c) => {
         <div class="lg:col-span-1">
             <div class="bg-white rounded-lg shadow-md p-6 mb-6">
                 <h2 class="text-xl font-bold mb-4">Submit Prayer Request</h2>
+                <div class="mb-4 p-3 bg-blue-50 rounded text-sm text-blue-700">
+                    <i class="fas fa-shield-alt mr-2"></i>
+                    Prayers require admin approval before being published.
+                </div>
                 <form action="/api/prayer-requests" method="POST" class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
@@ -406,11 +414,70 @@ app.get('/admin', requireAuth, requireAdmin, async (c) => {
   try {
     const user = c.get('user');
     const prayerService = new PrayerService(c.env.DB);
-    
+
+    const pendingPrayers = await prayerService.getPendingPrayerRequests();
     const pendingUpdates = await prayerService.getPendingSuggestedUpdates();
 
   const content = `
     <div class="space-y-6">
+        <!-- Pending Prayer Requests Section -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-bold mb-6">
+                <i class="fas fa-clipboard-check mr-2 text-blue-600"></i>
+                Pending Prayer Requests (${pendingPrayers.length})
+            </h2>
+
+            ${pendingPrayers.length === 0 ? `
+                <div class="text-center py-8 text-gray-500">
+                    <i class="fas fa-check-circle text-4xl mb-4 text-green-400"></i>
+                    <p>No pending prayer requests to review!</p>
+                </div>
+            ` : `
+                <div class="space-y-4">
+                    ${pendingPrayers.map(prayer => `
+                        <div class="border rounded-lg p-4 bg-blue-50">
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <h4 class="font-bold text-lg">${prayer.title}</h4>
+                                    <p class="text-sm text-gray-600">
+                                        Requested by: ${prayer.requester_name}
+                                        ${prayer.submitted_by_username ? ` (@${prayer.submitted_by_username})` : ' (Guest)'}
+                                    </p>
+                                    <p class="text-sm text-gray-500">Date: ${new Date(prayer.created_at).toLocaleDateString()}</p>
+                                    ${prayer.is_private ? '<span class="inline-block mt-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs">Private (Members Only)</span>' : '<span class="inline-block mt-1 px-2 py-1 bg-green-100 text-green-800 rounded text-xs">Public</span>'}
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-1 rounded text-xs font-semibold text-white" style="background-color: ${prayer.color || '#3B82F6'}">
+                                        <i class="${prayer.icon || 'fas fa-praying-hands'} mr-1"></i>${prayer.category}
+                                    </span>
+                                    <span class="px-2 py-1 bg-blue-200 text-blue-800 rounded text-xs">PENDING</span>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <h5 class="font-medium text-gray-700 mb-2">Prayer Request:</h5>
+                                <div class="bg-gray-50 p-3 rounded text-sm">${prayer.content}</div>
+                                ${prayer.requester_email ? `<p class="text-xs text-gray-500 mt-2">Contact: ${prayer.requester_email}</p>` : ''}
+                            </div>
+
+                            <div class="flex gap-2">
+                                <form action="/api/prayer-requests/${prayer.id}/approve" method="POST" class="inline">
+                                    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700">
+                                        <i class="fas fa-check mr-1"></i>Approve & Publish
+                                    </button>
+                                </form>
+                                <form action="/api/prayer-requests/${prayer.id}/reject" method="POST" class="inline">
+                                    <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded text-sm hover:bg-red-700">
+                                        <i class="fas fa-times mr-1"></i>Reject
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `}
+        </div>
+
         <!-- Pending Updates Section -->
         <div class="bg-white rounded-lg shadow-md p-6">
             <h2 class="text-2xl font-bold mb-6">
@@ -708,11 +775,39 @@ app.post('/api/prayer-requests/:id/suggest-update', requireAuth, async (c) => {
 
     const prayerService = new PrayerService(c.env.DB);
     await prayerService.createSuggestedUpdate(prayerRequestId, { suggested_content }, user.id);
-    
+
     return c.json({ success: true, message: 'Update suggestion submitted for admin review' });
   } catch (error) {
     console.error('Suggest update error:', error);
     return c.json({ success: false, error: 'Failed to submit update suggestion' }, 500);
+  }
+});
+
+// API: Approve prayer request
+app.post('/api/prayer-requests/:id/approve', requireAuth, requireAdmin, async (c) => {
+  try {
+    const prayerId = parseInt(c.req.param('id'));
+    const prayerService = new PrayerService(c.env.DB);
+    await prayerService.approvePrayerRequest(prayerId);
+
+    return c.redirect('/admin?approved=success');
+  } catch (error) {
+    console.error('Approve prayer error:', error);
+    return c.redirect('/admin?error=approve_failed');
+  }
+});
+
+// API: Reject prayer request
+app.post('/api/prayer-requests/:id/reject', requireAuth, requireAdmin, async (c) => {
+  try {
+    const prayerId = parseInt(c.req.param('id'));
+    const prayerService = new PrayerService(c.env.DB);
+    await prayerService.rejectPrayerRequest(prayerId);
+
+    return c.redirect('/admin?rejected=success');
+  } catch (error) {
+    console.error('Reject prayer error:', error);
+    return c.redirect('/admin?error=reject_failed');
   }
 });
 

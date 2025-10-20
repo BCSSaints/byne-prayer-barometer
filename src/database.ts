@@ -7,10 +7,10 @@ export class PrayerService {
   // Get all active prayer requests with optional category filter (for authenticated users)
   async getAllPrayerRequests(category?: string): Promise<PrayerRequest[]> {
     let query = `
-      SELECT id, title, content, requester_name, requester_email, submitted_by, category, status, 
-             is_private, created_at, updated_at 
-      FROM prayer_requests 
-      WHERE status != 'archived'
+      SELECT id, title, content, requester_name, requester_email, submitted_by, category, status,
+             is_private, created_at, updated_at
+      FROM prayer_requests
+      WHERE status = 'active'
     `;
     
     const params = [];
@@ -45,10 +45,10 @@ export class PrayerService {
   // Get only public prayer requests (for display page and non-authenticated users)
   async getPublicPrayerRequests(category?: string): Promise<PrayerRequest[]> {
     let query = `
-      SELECT id, title, content, requester_name, requester_email, submitted_by, category, status, 
-             is_private, created_at, updated_at 
-      FROM prayer_requests 
-      WHERE status != 'archived' AND is_private = 0
+      SELECT id, title, content, requester_name, requester_email, submitted_by, category, status,
+             is_private, created_at, updated_at
+      FROM prayer_requests
+      WHERE status = 'active' AND is_private = 0
     `;
     
     const params = [];
@@ -102,16 +102,16 @@ export class PrayerService {
   async createPrayerRequest(data: PrayerRequestForm, userId?: number): Promise<number> {
     const result = await this.db
       .prepare(`
-        INSERT INTO prayer_requests (title, content, requester_name, requester_email, category, submitted_by, is_private) 
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO prayer_requests (title, content, requester_name, requester_email, category, submitted_by, is_private, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
       `)
       .bind(
-        data.title, 
-        data.content, 
-        data.requester_name, 
+        data.title,
+        data.content,
+        data.requester_name,
         data.requester_email || null,
-        data.category, 
-        userId || null, 
+        data.category,
+        userId || null,
         data.is_private ? 1 : 0
       )
       .run();
@@ -413,7 +413,7 @@ export class PrayerService {
   async getStalePrayers(daysSinceUpdate: number = 30): Promise<any[]> {
     const results = await this.db
       .prepare(`
-        SELECT 
+        SELECT
           pr.id,
           pr.title,
           pr.requester_name,
@@ -435,5 +435,56 @@ export class PrayerService {
       .all();
 
     return results.results as any[];
+  }
+
+  // Get all pending prayer requests (for admin approval)
+  async getPendingPrayerRequests(): Promise<any[]> {
+    const results = await this.db
+      .prepare(`
+        SELECT
+          pr.id,
+          pr.title,
+          pr.content,
+          pr.requester_name,
+          pr.requester_email,
+          pr.category,
+          pr.is_private,
+          pr.created_at,
+          pc.color,
+          pc.icon,
+          u.username as submitted_by_username
+        FROM prayer_requests pr
+        LEFT JOIN prayer_categories pc ON pr.category = pc.name
+        LEFT JOIN users u ON pr.submitted_by = u.id
+        WHERE pr.status = 'pending'
+        ORDER BY pr.created_at ASC
+      `)
+      .all();
+
+    return results.results as any[];
+  }
+
+  // Approve a pending prayer request
+  async approvePrayerRequest(prayerId: number): Promise<void> {
+    await this.db
+      .prepare(`
+        UPDATE prayer_requests
+        SET status = 'active', updated_at = datetime('now')
+        WHERE id = ? AND status = 'pending'
+      `)
+      .bind(prayerId)
+      .run();
+  }
+
+  // Reject a pending prayer request (archive it)
+  async rejectPrayerRequest(prayerId: number): Promise<void> {
+    await this.db
+      .prepare(`
+        UPDATE prayer_requests
+        SET status = 'archived', updated_at = datetime('now')
+        WHERE id = ? AND status = 'pending'
+      `)
+      .bind(prayerId)
+      .run();
   }
 }
