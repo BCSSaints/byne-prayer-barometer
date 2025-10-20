@@ -58,6 +58,7 @@ export interface SuggestedUpdate {
   prayer_request_id: number;
   suggested_by: number;
   suggested_content: string;
+  suggested_category?: string; // Optional category change
   status: 'pending' | 'approved' | 'rejected';
   admin_notes?: string;
   reviewed_by?: number;
@@ -98,4 +99,5 @@ export interface ImportResult {
 
 export interface SuggestedUpdateForm {
   suggested_content: string;
+  suggested_category?: string; // Optional category change
 }

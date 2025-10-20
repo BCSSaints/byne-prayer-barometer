@@ -151,10 +151,10 @@ export class PrayerService {
   async createSuggestedUpdate(prayerRequestId: number, data: SuggestedUpdateForm, userId: number): Promise<number> {
     const result = await this.db
       .prepare(`
-        INSERT INTO suggested_updates (prayer_request_id, suggested_by, suggested_content) 
-        VALUES (?, ?, ?)
+        INSERT INTO suggested_updates (prayer_request_id, suggested_by, suggested_content, suggested_category)
+        VALUES (?, ?, ?, ?)
       `)
-      .bind(prayerRequestId, userId, data.suggested_content)
+      .bind(prayerRequestId, userId, data.suggested_content, data.suggested_category || null)
       .run();
 
     return result.meta.last_row_id as number;
@@ -164,13 +164,15 @@ export class PrayerService {
   async getPendingSuggestedUpdates(): Promise<any[]> {
     const results = await this.db
       .prepare(`
-        SELECT 
-          su.id, 
-          su.prayer_request_id, 
-          su.suggested_content, 
+        SELECT
+          su.id,
+          su.prayer_request_id,
+          su.suggested_content,
+          su.suggested_category,
           su.created_at,
           pr.title as prayer_title,
           pr.content as original_content,
+          pr.category as original_category,
           u.username as suggested_by_username
         FROM suggested_updates su
         JOIN prayer_requests pr ON su.prayer_request_id = pr.id
@@ -187,7 +189,7 @@ export class PrayerService {
   async approveSuggestedUpdate(updateId: number, adminId: number, adminNotes?: string): Promise<void> {
     // First get the suggested update details
     const update = await this.db
-      .prepare('SELECT prayer_request_id, suggested_content FROM suggested_updates WHERE id = ?')
+      .prepare('SELECT prayer_request_id, suggested_content, suggested_category FROM suggested_updates WHERE id = ?')
       .bind(updateId)
       .first() as any;
 
@@ -198,9 +200,9 @@ export class PrayerService {
     // Mark the suggested update as approved
     await this.db
       .prepare(`
-        UPDATE suggested_updates 
-        SET status = 'approved', 
-            reviewed_by = ?, 
+        UPDATE suggested_updates
+        SET status = 'approved',
+            reviewed_by = ?,
             reviewed_at = datetime('now'),
             admin_notes = ?
         WHERE id = ?
@@ -208,16 +210,30 @@ export class PrayerService {
       .bind(adminId, adminNotes || '', updateId)
       .run();
 
-    // CRITICAL FIX: Actually update the prayer request content with the suggested content
-    await this.db
-      .prepare(`
-        UPDATE prayer_requests 
-        SET content = ?, 
-            updated_at = datetime('now') 
-        WHERE id = ?
-      `)
-      .bind(update.suggested_content, update.prayer_request_id)
-      .run();
+    // Update the prayer request content and category (if category was suggested)
+    if (update.suggested_category) {
+      await this.db
+        .prepare(`
+          UPDATE prayer_requests
+          SET content = ?,
+              category = ?,
+              updated_at = datetime('now')
+          WHERE id = ?
+        `)
+        .bind(update.suggested_content, update.suggested_category, update.prayer_request_id)
+        .run();
+    } else {
+      // Only update content if no category change
+      await this.db
+        .prepare(`
+          UPDATE prayer_requests
+          SET content = ?,
+              updated_at = datetime('now')
+          WHERE id = ?
+        `)
+        .bind(update.suggested_content, update.prayer_request_id)
+        .run();
+    }
   }
 
   // Reject suggested update

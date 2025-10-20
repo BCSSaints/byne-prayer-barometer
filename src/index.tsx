@@ -52,18 +52,73 @@ const renderSimplePage = (title: string, content: string, user: any = null) => {
     </div>
     
     <script>
-        function suggestUpdate(prayerId, prayerTitle) {
-            const newContent = prompt('Suggest an update for: "' + prayerTitle + '"\\n\\nEnter the updated prayer content:');
-            if (newContent && newContent.trim()) {
+        function suggestUpdate(prayerId, prayerTitle, currentCategory, categories) {
+            // Create modal dialog
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;';
+
+            const categoriesJSON = JSON.parse(categories);
+            const categoryOptions = categoriesJSON.map(cat =>
+                `<option value="${cat.name}" ${cat.name === currentCategory ? 'selected' : ''}>${cat.name}</option>`
+            ).join('');
+
+            modal.innerHTML = `
+                <div style="background:white;padding:24px;border-radius:8px;max-width:600px;width:90%;">
+                    <h3 style="font-size:20px;font-weight:bold;margin-bottom:16px;">Suggest Update for: "${prayerTitle}"</h3>
+                    <div style="margin-bottom:16px;">
+                        <label style="display:block;font-weight:500;margin-bottom:8px;">Updated Content:</label>
+                        <textarea id="suggestedContent" rows="4" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;"></textarea>
+                    </div>
+                    <div style="margin-bottom:16px;">
+                        <label style="display:block;font-weight:500;margin-bottom:8px;">
+                            Category Change (optional):
+                            <span style="font-weight:normal;color:#6b7280;font-size:14px;">- Leave as-is or change category</span>
+                        </label>
+                        <select id="suggestedCategory" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">
+                            <option value="">No category change</option>
+                            ${categoryOptions}
+                        </select>
+                    </div>
+                    <div style="display:flex;gap:8px;justify-content:flex-end;">
+                        <button onclick="closeModal()" style="padding:8px 16px;background:#6b7280;color:white;border:none;border-radius:4px;cursor:pointer;">Cancel</button>
+                        <button onclick="submitUpdate(${prayerId})" style="padding:8px 16px;background:#3b82f6;color:white;border:none;border-radius:4px;cursor:pointer;">Submit Update</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+            document.getElementById('suggestedContent').focus();
+
+            window.closeModal = function() {
+                document.body.removeChild(modal);
+                delete window.closeModal;
+                delete window.submitUpdate;
+            };
+
+            window.submitUpdate = function(prayerId) {
+                const content = document.getElementById('suggestedContent').value.trim();
+                const category = document.getElementById('suggestedCategory').value;
+
+                if (!content) {
+                    alert('Please enter updated content.');
+                    return;
+                }
+
+                const payload = { suggested_content: content };
+                if (category) {
+                    payload.suggested_category = category;
+                }
+
                 fetch('/api/prayer-requests/' + prayerId + '/suggest-update', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ suggested_content: newContent.trim() })
+                    body: JSON.stringify(payload)
                 })
                 .then(response => response.json())
                 .then(data => {
+                    closeModal();
                     if (data.success) {
                         alert('Update suggestion submitted! An admin will review it shortly.');
                     } else {
@@ -72,9 +127,10 @@ const renderSimplePage = (title: string, content: string, user: any = null) => {
                 })
                 .catch(error => {
                     console.error('Error:', error);
+                    closeModal();
                     alert('Error submitting suggestion. Please try again.');
                 });
-            }
+            };
         }
     </script>
 </body>
@@ -301,7 +357,7 @@ app.get('/', requireAuth, async (c) => {
                                 By: ${prayer.requester_name} | ${new Date(prayer.created_at).toLocaleDateString()}
                                 ${prayer.is_private ? '<span class="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs">Private</span>' : ''}
                             </div>
-                            <button onclick="suggestUpdate(${prayer.id}, '${prayer.title.replace(/'/g, "\\'")}\')" class="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">
+                            <button onclick='suggestUpdate(${prayer.id}, "${prayer.title.replace(/"/g, '&quot;')}", "${prayer.category}", ${JSON.stringify(JSON.stringify(categories))})' class="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">
                                 <i class="fas fa-edit mr-1"></i>Suggest Update
                             </button>
                         </div>
@@ -507,11 +563,22 @@ app.get('/admin', requireAuth, requireAdmin, async (c) => {
                                 <h5 class="font-medium text-gray-700 mb-2">Current Content:</h5>
                                 <div class="bg-gray-100 p-3 rounded text-sm">${update.original_content}</div>
                             </div>
-                            
+
                             <div class="mb-4">
                                 <h5 class="font-medium text-green-700 mb-2">Suggested Update:</h5>
                                 <div class="bg-green-50 border border-green-200 p-3 rounded text-sm">${update.suggested_content}</div>
                             </div>
+
+                            ${update.suggested_category ? `
+                            <div class="mb-4">
+                                <h5 class="font-medium text-blue-700 mb-2">Category Change:</h5>
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-sm">${update.original_category}</span>
+                                    <i class="fas fa-arrow-right text-blue-600"></i>
+                                    <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm font-semibold">${update.suggested_category}</span>
+                                </div>
+                            </div>
+                            ` : ''}
                             
                             <div class="flex gap-2">
                                 <form action="/api/suggested-updates/${update.id}/approve" method="POST" class="inline">
@@ -771,10 +838,14 @@ app.post('/api/prayer-requests/:id/suggest-update', requireAuth, async (c) => {
   try {
     const user = c.get('user');
     const prayerRequestId = parseInt(c.req.param('id'));
-    const { suggested_content } = await c.req.json();
+    const { suggested_content, suggested_category } = await c.req.json();
 
     const prayerService = new PrayerService(c.env.DB);
-    await prayerService.createSuggestedUpdate(prayerRequestId, { suggested_content }, user.id);
+    await prayerService.createSuggestedUpdate(
+      prayerRequestId,
+      { suggested_content, suggested_category },
+      user.id
+    );
 
     return c.json({ success: true, message: 'Update suggestion submitted for admin review' });
   } catch (error) {
