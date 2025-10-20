@@ -503,4 +503,46 @@ export class PrayerService {
       .bind(prayerId)
       .run();
   }
+
+  // Get stale Health Need and Prayer Need requests (no update for specified days)
+  async getStaleHealthAndPrayerNeeds(daysSinceUpdate: number = 60): Promise<any[]> {
+    const results = await this.db
+      .prepare(`
+        SELECT
+          pr.id,
+          pr.title,
+          pr.content,
+          pr.requester_name,
+          pr.category,
+          pr.created_at,
+          pr.updated_at,
+          ROUND((julianday('now') - julianday(COALESCE(pr.updated_at, pr.created_at)))) as days_since_update
+        FROM prayer_requests pr
+        WHERE pr.status = 'active'
+        AND pr.category IN ('Health Need', 'Prayer Need')
+        AND (julianday('now') - julianday(COALESCE(pr.updated_at, pr.created_at))) >= ?
+        ORDER BY pr.updated_at ASC
+      `)
+      .bind(daysSinceUpdate)
+      .all();
+
+    return results.results as any[];
+  }
+
+  // Migrate stale Health Need and Prayer Need requests to Long-Term Need
+  async migrateToLongTermNeeds(daysSinceUpdate: number = 60): Promise<number> {
+    const result = await this.db
+      .prepare(`
+        UPDATE prayer_requests
+        SET category = 'Long-Term Need',
+            updated_at = datetime('now')
+        WHERE status = 'active'
+        AND category IN ('Health Need', 'Prayer Need')
+        AND (julianday('now') - julianday(COALESCE(updated_at, created_at))) >= ?
+      `)
+      .bind(daysSinceUpdate)
+      .run();
+
+    return result.meta.changes || 0;
+  }
 }

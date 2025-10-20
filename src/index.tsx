@@ -603,13 +603,17 @@ app.get('/admin', requireAuth, requireAdmin, async (c) => {
         <!-- Quick Actions -->
         <div class="bg-white rounded-lg shadow-md p-6">
             <h3 class="text-xl font-bold mb-4">Quick Actions</h3>
-            <div class="grid md:grid-cols-3 gap-4">
+            <div class="grid md:grid-cols-4 gap-4">
                 <a href="/" class="bg-blue-600 text-white p-4 rounded text-center hover:bg-blue-700">
                     <i class="fas fa-home text-2xl mb-2"></i>
                     <div>View Dashboard</div>
                 </a>
+                <a href="/admin/long-term-migration" class="bg-purple-600 text-white p-4 rounded text-center hover:bg-purple-700">
+                    <i class="fas fa-calendar-alt text-2xl mb-2"></i>
+                    <div>Long-Term Migration</div>
+                </a>
                 ${user.role === 'super_admin' ? `
-                <a href="/manage-users" class="bg-purple-600 text-white p-4 rounded text-center hover:bg-purple-700">
+                <a href="/manage-users" class="bg-indigo-600 text-white p-4 rounded text-center hover:bg-indigo-700">
                     <i class="fas fa-users text-2xl mb-2"></i>
                     <div>Manage Users</div>
                 </a>` : ''}
@@ -851,6 +855,130 @@ app.post('/api/prayer-requests/:id/suggest-update', requireAuth, async (c) => {
   } catch (error) {
     console.error('Suggest update error:', error);
     return c.json({ success: false, error: 'Failed to submit update suggestion' }, 500);
+  }
+});
+
+// Admin page for long-term migration
+app.get('/admin/long-term-migration', requireAuth, requireAdmin, async (c) => {
+  try {
+    const user = c.get('user');
+    const prayerService = new PrayerService(c.env.DB);
+
+    const stalePrayers = await prayerService.getStaleHealthAndPrayerNeeds(60);
+    const migratedCount = c.req.query('migrated');
+    const error = c.req.query('error');
+
+    const content = `
+      <div class="space-y-6">
+          <div class="bg-white rounded-lg shadow-md p-6">
+              <h2 class="text-2xl font-bold mb-4">
+                  <i class="fas fa-calendar-alt mr-2 text-purple-600"></i>
+                  Long-Term Need Migration
+              </h2>
+
+              ${migratedCount ? `
+              <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <p class="text-green-800 font-semibold">
+                      <i class="fas fa-check-circle mr-2"></i>
+                      Successfully migrated ${migratedCount} prayer(s) to Long-Term Need!
+                  </p>
+              </div>
+              ` : ''}
+
+              ${error ? `
+              <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p class="text-red-800 font-semibold">
+                      <i class="fas fa-exclamation-circle mr-2"></i>
+                      Migration failed. Please try again.
+                  </p>
+              </div>
+              ` : ''}
+
+              <div class="mb-6 p-4 bg-blue-50 rounded-lg">
+                  <p class="text-blue-700 text-sm mb-2">
+                      <i class="fas fa-info-circle mr-2"></i>
+                      This tool automatically moves Health Needs and Prayer Needs that haven't been updated in 2 months (60 days) to the Long-Term Need category.
+                  </p>
+                  <p class="text-blue-700 text-sm">
+                      <i class="fas fa-shield-alt mr-2"></i>
+                      This helps identify prayers that need sustained, ongoing support from the congregation.
+                  </p>
+              </div>
+
+              <div class="mb-4">
+                  <h3 class="text-lg font-bold mb-2">
+                      Prayers to be Migrated: ${stalePrayers.length}
+                  </h3>
+              </div>
+
+              ${stalePrayers.length === 0 ? `
+                  <div class="text-center py-8 text-gray-500">
+                      <i class="fas fa-check-circle text-4xl mb-4 text-green-400"></i>
+                      <p>No prayers need to be migrated at this time!</p>
+                      <p class="text-sm mt-2">All Health Needs and Prayer Needs are recent.</p>
+                  </div>
+              ` : `
+                  <div class="mb-6 space-y-4 max-h-96 overflow-y-auto">
+                      ${stalePrayers.map(prayer => `
+                          <div class="border rounded-lg p-4 bg-yellow-50">
+                              <div class="flex justify-between items-start mb-2">
+                                  <h4 class="font-bold">${prayer.title}</h4>
+                                  <span class="px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs">
+                                      ${prayer.category}
+                                  </span>
+                              </div>
+                              <p class="text-sm text-gray-700 mb-2">${prayer.content.substring(0, 150)}${prayer.content.length > 150 ? '...' : ''}</p>
+                              <div class="text-xs text-gray-500">
+                                  By: ${prayer.requester_name} |
+                                  Last updated: ${new Date(prayer.updated_at || prayer.created_at).toLocaleDateString()}
+                                  (${prayer.days_since_update} days ago)
+                              </div>
+                          </div>
+                      `).join('')}
+                  </div>
+
+                  <form action="/api/admin/migrate-to-long-term" method="POST" class="mt-6" onsubmit="return confirm('Are you sure you want to move ${stalePrayers.length} prayer(s) to Long-Term Need? This action cannot be undone.');">
+                      <button type="submit" class="w-full bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 font-semibold">
+                          <i class="fas fa-arrow-right mr-2"></i>
+                          Migrate ${stalePrayers.length} Prayer(s) to Long-Term Need
+                      </button>
+                  </form>
+              `}
+
+              <div class="mt-6 text-center">
+                  <a href="/admin" class="text-blue-600 hover:text-blue-800">
+                      <i class="fas fa-arrow-left mr-2"></i>Back to Admin Dashboard
+                  </a>
+              </div>
+          </div>
+      </div>
+    `;
+
+    return c.html(renderSimplePage('Long-Term Migration', content, user));
+  } catch (error) {
+    console.error('Long-term migration page error:', error);
+    const errorContent = `
+      <div class="bg-red-50 border border-red-200 rounded-lg p-6">
+        <h2 class="text-xl font-bold text-red-800 mb-4">Migration Tool Error</h2>
+        <p class="text-red-700">There was an issue loading the migration tool.</p>
+        <div class="mt-4">
+          <a href="/admin" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Back to Admin</a>
+        </div>
+      </div>`;
+    return c.html(renderSimplePage('Migration Error', errorContent, c.get('user')));
+  }
+});
+
+// API: Migrate stale prayers to Long-Term Need
+app.post('/api/admin/migrate-to-long-term', requireAuth, requireAdmin, async (c) => {
+  try {
+    const prayerService = new PrayerService(c.env.DB);
+    const migratedCount = await prayerService.migrateToLongTermNeeds(60);
+
+    return c.redirect(`/admin/long-term-migration?migrated=${migratedCount}`);
+  } catch (error) {
+    console.error('Migration error:', error);
+    return c.redirect('/admin/long-term-migration?error=migration_failed');
   }
 });
 
