@@ -64,18 +64,25 @@ const renderSimplePage = (title: string, content: string, user: any = null) => {
 
             modal.innerHTML = `
                 <div style="background:white;padding:24px;border-radius:8px;max-width:600px;width:90%;">
-                    <h3 style="font-size:20px;font-weight:bold;margin-bottom:16px;">Suggest Update for: "${prayerTitle}"</h3>
+                    <h3 style="font-size:20px;font-weight:bold;margin-bottom:8px;">Update Prayer Request</h3>
+                    <p style="font-size:14px;color:#6b7280;margin-bottom:16px;">"${prayerTitle}" - Currently: <strong>${currentCategory}</strong></p>
+                    <div style="margin-bottom:16px;padding:12px;background:#dbeafe;border-left:4px solid #3b82f6;border-radius:4px;">
+                        <p style="font-size:13px;color:#1e40af;margin:0;">
+                            <strong>💡 You can:</strong> Update the content and/or change the category<br/>
+                            <em>Example: Change "Praise Report" to "Prayer Need" if new challenges arise</em>
+                        </p>
+                    </div>
                     <div style="margin-bottom:16px;">
                         <label style="display:block;font-weight:500;margin-bottom:8px;">Updated Content:</label>
-                        <textarea id="suggestedContent" rows="4" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;"></textarea>
+                        <textarea id="suggestedContent" rows="4" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;" placeholder="Enter updated prayer content..."></textarea>
                     </div>
                     <div style="margin-bottom:16px;">
                         <label style="display:block;font-weight:500;margin-bottom:8px;">
-                            Category Change (optional):
-                            <span style="font-weight:normal;color:#6b7280;font-size:14px;">- Leave as-is or change category</span>
+                            Change Category:
+                            <span style="font-weight:normal;color:#6b7280;font-size:14px;">- Select a different category or keep current</span>
                         </label>
                         <select id="suggestedCategory" style="width:100%;padding:8px;border:1px solid #d1d5db;border-radius:4px;">
-                            <option value="">No category change</option>
+                            <option value="">Keep current category (${currentCategory})</option>
                             ${categoryOptions}
                         </select>
                     </div>
@@ -277,6 +284,10 @@ app.get('/', requireAuth, async (c) => {
                     <i class="fas fa-shield-alt mr-2"></i>
                     Prayers require admin approval before being published.
                 </div>
+                <div class="mb-4 p-3 bg-green-50 rounded text-sm text-green-700">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    <strong>Tip:</strong> Click "Suggest Update" on any prayer to update content or change its category (e.g., Praise Report ↔ Prayer Need).
+                </div>
                 <form action="/api/prayer-requests" method="POST" class="space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
@@ -357,8 +368,8 @@ app.get('/', requireAuth, async (c) => {
                                 By: ${prayer.requester_name} | ${new Date(prayer.created_at).toLocaleDateString()}
                                 ${prayer.is_private ? '<span class="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs">Private</span>' : ''}
                             </div>
-                            <button onclick='suggestUpdate(${prayer.id}, "${prayer.title.replace(/"/g, '&quot;')}", "${prayer.category}", ${JSON.stringify(JSON.stringify(categories))})' class="text-xs bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded">
-                                <i class="fas fa-edit mr-1"></i>Suggest Update
+                            <button onclick='suggestUpdate(${prayer.id}, "${prayer.title.replace(/"/g, '&quot;')}", "${prayer.category}", ${JSON.stringify(JSON.stringify(categories))})' class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded font-medium" title="Update content or change category">
+                                <i class="fas fa-edit mr-1"></i>Update / Change Category
                             </button>
                         </div>
                     </div>
@@ -647,38 +658,86 @@ app.get('/manage-users', requireAuth, requireSuperAdmin, async (c) => {
   const userService = new UserService(c.env.DB);
   const allUsers = await userService.getAllUsers();
 
+  const updated = c.req.query('updated');
+  const deleted = c.req.query('deleted');
+  const error = c.req.query('error');
+
   const content = `
     <div class="bg-white rounded-lg shadow-md p-6">
         <h2 class="text-2xl font-bold mb-6">User Management</h2>
+
+        ${updated ? `
+        <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p class="text-green-800"><i class="fas fa-check-circle mr-2"></i>User role updated successfully!</p>
+        </div>
+        ` : ''}
+
+        ${deleted ? `
+        <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <p class="text-blue-800"><i class="fas fa-user-slash mr-2"></i>User deleted successfully!</p>
+        </div>
+        ` : ''}
+
+        ${error === 'cannot_delete_self' ? `
+        <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p class="text-red-800"><i class="fas fa-exclamation-circle mr-2"></i>You cannot delete your own account!</p>
+        </div>
+        ` : error === 'delete_failed' ? `
+        <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p class="text-red-800"><i class="fas fa-exclamation-circle mr-2"></i>Failed to delete user. Please try again.</p>
+        </div>
+        ` : error === 'update_failed' ? `
+        <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p class="text-red-800"><i class="fas fa-exclamation-circle mr-2"></i>Failed to update user role. Please try again.</p>
+        </div>
+        ` : ''}
         <div class="overflow-x-auto">
             <table class="w-full border-collapse">
                 <thead>
                     <tr class="bg-gray-50">
                         <th class="text-left p-3 border-b">User</th>
+                        <th class="text-left p-3 border-b">Email</th>
                         <th class="text-left p-3 border-b">Role</th>
+                        <th class="text-left p-3 border-b">Status</th>
                         <th class="text-left p-3 border-b">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${allUsers.map(u => `
-                        <tr class="border-b">
-                            <td class="p-3">${u.full_name || u.username} (@${u.username})</td>
+                        <tr class="border-b ${u.status === 'inactive' ? 'bg-gray-50 opacity-60' : ''}">
+                            <td class="p-3">
+                                ${u.full_name || u.username} (@${u.username})
+                                ${u.status === 'inactive' ? '<span class="ml-2 text-xs text-gray-500">(Deleted)</span>' : ''}
+                            </td>
+                            <td class="p-3 text-sm text-gray-600">${u.email || '-'}</td>
                             <td class="p-3">
                                 <span class="px-2 py-1 rounded text-xs ${u.role === 'super_admin' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}">
                                     ${u.role.replace('_', ' ').toUpperCase()}
                                 </span>
                             </td>
                             <td class="p-3">
-                                ${u.id !== user.id ? `
-                                    <form action="/api/users/${u.id}/role" method="POST" class="inline">
-                                        <select name="new_role" class="text-sm border rounded px-2 py-1 mr-2" onchange="this.form.submit()">
-                                            <option value="member" ${u.role === 'member' ? 'selected' : ''}>Member</option>
-                                            <option value="moderator" ${u.role === 'moderator' ? 'selected' : ''}>Moderator</option>
-                                            <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
-                                            <option value="super_admin" ${u.role === 'super_admin' ? 'selected' : ''}>Super Admin</option>
-                                        </select>
-                                    </form>
-                                ` : '<span class="text-gray-500 text-sm">Your account</span>'}
+                                <span class="px-2 py-1 rounded text-xs ${u.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+                                    ${u.status.toUpperCase()}
+                                </span>
+                            </td>
+                            <td class="p-3">
+                                ${u.id !== user.id && u.status === 'active' ? `
+                                    <div class="flex gap-2 items-center">
+                                        <form action="/api/users/${u.id}/role" method="POST" class="inline">
+                                            <select name="new_role" class="text-sm border rounded px-2 py-1" onchange="this.form.submit()">
+                                                <option value="member" ${u.role === 'member' ? 'selected' : ''}>Member</option>
+                                                <option value="moderator" ${u.role === 'moderator' ? 'selected' : ''}>Moderator</option>
+                                                <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option>
+                                                <option value="super_admin" ${u.role === 'super_admin' ? 'selected' : ''}>Super Admin</option>
+                                            </select>
+                                        </form>
+                                        <form action="/api/users/${u.id}/delete" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete ${u.username}? This will deactivate their account.');">
+                                            <button type="submit" class="text-xs bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700">
+                                                <i class="fas fa-trash mr-1"></i>Delete
+                                            </button>
+                                        </form>
+                                    </div>
+                                ` : u.id === user.id ? '<span class="text-gray-500 text-sm">Your account</span>' : '<span class="text-gray-500 text-sm">Deleted</span>'}
                             </td>
                         </tr>
                     `).join('')}
@@ -794,10 +853,30 @@ app.post('/api/users/:id/role', requireAuth, requireSuperAdmin, async (c) => {
 
     const userService = new UserService(c.env.DB);
     await userService.updateUserRole(userId, newRole);
-    
+
     return c.redirect('/manage-users?updated=success');
   } catch (error) {
     return c.redirect('/manage-users?error=update_failed');
+  }
+});
+
+app.post('/api/users/:id/delete', requireAuth, requireSuperAdmin, async (c) => {
+  try {
+    const currentUser = c.get('user');
+    const userId = parseInt(c.req.param('id'));
+
+    // Prevent deleting yourself
+    if (userId === currentUser.id) {
+      return c.redirect('/manage-users?error=cannot_delete_self');
+    }
+
+    const userService = new UserService(c.env.DB);
+    await userService.deleteUser(userId);
+
+    return c.redirect('/manage-users?deleted=success');
+  } catch (error) {
+    console.error('Delete user error:', error);
+    return c.redirect('/manage-users?error=delete_failed');
   }
 });
 
