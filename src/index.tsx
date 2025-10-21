@@ -27,21 +27,21 @@ const renderSimplePage = (title: string, content: string, user: any = null) => {
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" rel="stylesheet">
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <nav class="bg-blue-900 text-white shadow-lg">
+<body class="bg-amber-50 min-h-screen">
+    <nav class="bg-gradient-to-r from-orange-900 via-amber-900 to-orange-800 text-amber-50 shadow-lg">
         <div class="max-w-6xl mx-auto px-4 py-4">
             <div class="flex justify-between items-center">
-                <h1 class="text-xl font-bold">BYNE CHURCH Prayer Requests</h1>
+                <h1 class="text-xl font-bold text-amber-100">BYNE CHURCH Prayer Requests</h1>
                 <div class="flex items-center space-x-4">
                     ${user ? `
-                        <span class="text-gray-300">Welcome, ${user.full_name || user.username}</span>
-                        <span class="text-xs px-2 py-1 bg-blue-600 rounded">${user.role.replace('_', ' ').toUpperCase()}</span>
-                        ${user.is_admin ? '<a href="/admin" class="bg-yellow-600 px-3 py-1 rounded text-sm hover:bg-yellow-500">Admin</a>' : ''}
-                        ${user.role === 'super_admin' ? '<a href="/manage-users" class="bg-purple-600 px-3 py-1 rounded text-sm hover:bg-purple-500">Users</a>' : ''}
-                        <a href="/logout" class="bg-red-600 px-3 py-1 rounded text-sm hover:bg-red-500">Logout</a>
+                        <span class="text-amber-200">Welcome, ${user.full_name || user.username}</span>
+                        <span class="text-xs px-2 py-1 bg-amber-700 text-amber-50 rounded">${user.role.replace('_', ' ').toUpperCase()}</span>
+                        ${user.is_admin ? '<a href="/admin" class="bg-orange-600 px-3 py-1 rounded text-sm hover:bg-orange-500 text-white">Admin</a>' : ''}
+                        ${user.role === 'super_admin' ? '<a href="/manage-users" class="bg-amber-700 px-3 py-1 rounded text-sm hover:bg-amber-600 text-white">Users</a>' : ''}
+                        <a href="/logout" class="bg-red-800 px-3 py-1 rounded text-sm hover:bg-red-700 text-white">Logout</a>
                     ` : `
-                        <a href="/request-prayer" class="bg-green-600 px-3 py-1 rounded text-sm hover:bg-green-700">Request Prayer</a>
-                        <a href="/login" class="bg-blue-600 px-3 py-1 rounded text-sm hover:bg-blue-700">Login</a>
+                        <a href="/request-prayer" class="bg-orange-600 px-3 py-1 rounded text-sm hover:bg-orange-500 text-white">Request Prayer</a>
+                        <a href="/login" class="bg-amber-700 px-3 py-1 rounded text-sm hover:bg-amber-600 text-white">Login</a>
                     `}
                 </div>
             </div>
